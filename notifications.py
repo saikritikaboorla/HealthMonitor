@@ -26,6 +26,36 @@ class NotificationService:
             except Exception as e:
                 logger.error(f"Error loading config.json: {e}")
         self.simulated_sms_inbox: List[Dict[str, Any]] = []
+        self.simulated_whatsapp_inbox: List[Dict[str, Any]] = [
+            {
+                "notification_id": "wa_seed_1",
+                "alert_id": "alert_init_1",
+                "patient_id": "p1",
+                "recipient_id": "fc_1a",
+                "recipient_name": "Rahul Sharma (Son)",
+                "recipient_type": "family",
+                "channel": "whatsapp",
+                "phone_masked": "+91 9XXXXXX10",
+                "status": "Delivered",
+                "sent_at": datetime.now().isoformat(),
+                "latency_ms": 110,
+                "message": "🚨 *CareBeat WhatsApp Alert*\nPatient: *Demo Patient A*\nAlert: Morning Heart Rate stable at 75 BPM.\nAssigned Caregiver: Priya Nair (+91 9XXXXXX66)"
+            },
+            {
+                "notification_id": "wa_seed_2",
+                "alert_id": "alert_init_2",
+                "patient_id": "p2",
+                "recipient_id": "fc_2a",
+                "recipient_name": "Sunita Verma (Daughter)",
+                "recipient_type": "family",
+                "channel": "whatsapp",
+                "phone_masked": "+91 9XXXXXX33",
+                "status": "Delivered",
+                "sent_at": datetime.now().isoformat(),
+                "latency_ms": 115,
+                "message": "✅ *CareBeat WhatsApp Daily Check-In*\nPatient: *Demo Patient B*\nStatus: Check-in confirmed by caregiver. Vitals stable."
+            }
+        ]
 
     def get_telegram_token(self) -> Optional[str]:
         return os.environ.get("TELEGRAM_BOT_TOKEN") or self.config.get("TELEGRAM_BOT_TOKEN")
@@ -112,6 +142,32 @@ class NotificationService:
                     )
                     deliveries.append(record)
 
+                    # Simulated WhatsApp Alert
+                    wa_record = self._deliver_whatsapp(
+                        alert_id=alert_id,
+                        patient_id=patient_id,
+                        recipient_id=prim_contact["contact_id"],
+                        recipient_name=prim_contact["name"],
+                        recipient_type="family",
+                        phone=prim_contact["phone_raw"],
+                        message=f"🚨 *CareBeat WhatsApp Emergency Broadcast*\nPatient: *{patient_name}*\nAlert: {explanation}\nStatus: Urgent care team notified.",
+                        now_iso=now_iso
+                    )
+                    deliveries.append(wa_record)
+
+                if caregiver:
+                    wa_cg = self._deliver_whatsapp(
+                        alert_id=alert_id,
+                        patient_id=patient_id,
+                        recipient_id=caregiver["caregiver_id"],
+                        recipient_name=caregiver["name"],
+                        recipient_type="caregiver",
+                        phone=caregiver["phone"],
+                        message=f"🚨 *CareBeat Clinical WhatsApp Alert*\nAssigned Patient: *{patient_name}*\nEvent: {explanation}\nPlease review telemetry immediately.",
+                        now_iso=now_iso
+                    )
+                    deliveries.append(wa_cg)
+
                 # Real Telegram delivery if configured
                 if token and chat_id:
                     tg_record = await self._send_telegram(alert_id, patient_id, token, chat_id, msg_body, now_iso)
@@ -134,6 +190,27 @@ class NotificationService:
         conn.close()
 
         return deliveries
+
+    def _deliver_whatsapp(self, alert_id: str, patient_id: str, recipient_id: str, recipient_name: str, recipient_type: str, phone: str, message: str, now_iso: str) -> Dict[str, Any]:
+        item = {
+            "notification_id": f"wa_{int(datetime.now().timestamp()*1000)}_{len(self.simulated_whatsapp_inbox)}",
+            "alert_id": alert_id,
+            "patient_id": patient_id,
+            "recipient_id": recipient_id,
+            "recipient_name": recipient_name,
+            "recipient_type": recipient_type,
+            "channel": "whatsapp",
+            "phone_masked": mask_phone(phone),
+            "status": "Delivered",
+            "sent_at": now_iso,
+            "latency_ms": 105,
+            "message": message
+        }
+        self.simulated_whatsapp_inbox.insert(0, item)
+        if len(self.simulated_whatsapp_inbox) > 100:
+            self.simulated_whatsapp_inbox.pop()
+        logger.info(f"[WHATSAPP] To: {item['recipient_name']} ({item['phone_masked']}) | Message: {message}")
+        return item
 
     def _deliver_sms(self, alert_id: str, patient_id: str, recipient_id: str, recipient_type: str, phone: str, message: str, now_iso: str) -> Dict[str, Any]:
         item = {

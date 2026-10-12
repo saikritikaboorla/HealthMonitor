@@ -118,32 +118,36 @@ The prototype runs entirely on a standard laptop with zero required hardware. It
 11. Show a Health Score (0–100) per patient with complete formula transparency.
 12. Integrate an AI Layer (Google Gemini) for 24-hour plain-language summaries and care tips with strict non-diagnostic guardrails.
 13. Integrate an offline Deterministic Fallback Layer ensuring zero crashes and zero latency when AI is unavailable.
-14. Provide a Caregiver Module with profile, verification (mocked), fee negotiation (mocked), and assignment.
-15. Keep a full append-only audit trail of readings, alerts, notifications, contact changes, and caregiver actions.
-16. Show an Evaluation/Metrics page for hackathon judges (`eval_test.py`).
-17. Clearly communicate that the system is a monitoring prototype and not a medical diagnostic tool.
+14. Provide a Caregiver Module with profile, verification (mocked), fee negotiation (mocked), and max-2 patient cohort assignment.
+15. Provide dedicated Simulated WhatsApp Emergency Broadcast & Caregiver communication with masked phone numbers (`+91 9XXXXXX10`).
+16. Keep a full append-only audit trail of readings, alerts, notifications, contact changes, and caregiver actions.
+17. Show an Evaluation/Metrics page for hackathon judges (`eval_test.py`).
+18. Deploy full-stack frontend and backend unified under a single live Vercel URL (`https://carebeat-health-monitor.vercel.app`).
+19. Clearly communicate that the system is a monitoring prototype and not a medical diagnostic tool.
 
 ---
 
-## 2. Recommended Technology Stack
+## 2. Technology Stack & Deployment Architecture
+
+**Live Production URL (Unified Vercel):** [https://carebeat-health-monitor.vercel.app](https://carebeat-health-monitor.vercel.app)
 
 | Layer | Technology | Purpose & Justification |
 |---|---|---|
-| **Backend framework** | Python 3.11+ with FastAPI | High-performance asynchronous REST API and native WebSocket server for sub-second telemetry ingestion and dispatch. Zero-cost. |
-| **Database** | SQLite (WAL mode) | Relational database with ACID compliance, zero setup, indexed queries, and append-only audit trail logging. |
-| **Frontend** | Plain HTML5 / CSS3 / Vanilla JS (ES6+) | Clean, responsive single-page application. No build step (no npm/Node.js required), runs in any modern browser. |
-| **Data Visualization** | Chart.js via CDN | Lightweight hardware-accelerated canvas charts for real-time sparklines, waveform trends, and threshold limit overlays. |
-| **Real-time communication** | FastAPI WebSocket (`/ws`) | Persistent bi-directional channel streaming vitals every second and synchronizing alert states across dashboards. |
-| **AI Intelligence Layer** | Google Gemini API (`gemini-1.5-flash`) | Generates non-diagnostic 24-hour plain-language summaries, contextual caregiver advice, and explainable alert notes. |
-| **Deterministic Fallback Layer** | CareBeat Clinical Heuristics Engine | Local, rule-based algorithmic engine in `ai_service.py` providing 100% offline fallback summaries when external AI is unavailable. |
-| **Simulation and replay** | Python (`random`, `math`, `csv`) | Built-in Gaussian drift generator (`simulator.py`) and Kaggle dataset replayer (60,000 records) with instant anomaly triggers. |
-| **IoT & Hardware Ingestion** | HTTP REST / JSON (`POST /measurements`) | Device-independent schema compatible with ESP32 Wi-Fi microcontrollers, dynamic simulators, and dataset replayers. |
-| **Background tasks** | FastAPI BackgroundTasks + APScheduler | Escalation timers, medicine reminder schedules, missed check-in alerts, and offline device heartbeat detection. |
-| **Notifications** | Telegram Bot API + Simulated SMS | Real Telegram Bot notifications if token is set; in-dashboard simulated SMS panel with optional Twilio adapter. |
-| **Auditory & Voice alerts** | Browser SpeechSynthesis API | Loud browser siren tone and spoken voice alerts on Critical alerts, SOS events, and scheduled medication reminders. |
-| **Configuration** | `config.json` / environment variables | All secrets, tokens, and configurable threshold defaults isolated from source code. |
+| **Production Cloud Hosting** | **Vercel Serverless Architecture** | Hosts both frontend and backend synchronously under a single domain via `vercel.json` (`@vercel/python` builder, root static rewrites, `/tmp` SQLite bridge). Zero-cost cloud uptime. |
+| **Backend Framework** | **Python 3.11+ with FastAPI** | High-performance asynchronous REST API and native WebSocket server for sub-second telemetry ingestion and dispatch. |
+| **Database** | **SQLite (WAL Mode)** | Relational database with ACID compliance, zero setup, indexed queries, and append-only audit trail logging. Auto-synced to `/tmp/carebeat.db` on serverless runs. |
+| **Frontend Architecture** | **Plain HTML5 / CSS3 / Vanilla JS (ES6+)** | Clean, responsive single-page application. Zero build step (no npm/Node.js required), runs natively in modern web browsers. |
+| **Data Visualization** | **Chart.js via CDN** | Lightweight hardware-accelerated canvas charts for real-time sparklines, waveform trends, and threshold limit overlays. |
+| **Real-Time Communication** | **FastAPI WebSocket (`/ws`) + Cloud Polling Fallback** | Bi-directional channel streaming vitals every second and synchronizing alert states across dashboards, with sub-second polling fallback on serverless. |
+| **Emergency Alerts & Messaging** | **Simulated WhatsApp & SMS Mockup Panels** | Dedicated WhatsApp alerts channel with strict phone masking with X's (`+91 9XXXXXX10`), interactive two-way communication, Telegram Bot API adapter, and SMS panel. |
+| **AI Intelligence Layer** | **Google Gemini API (`gemini-1.5-flash`)** | Generates non-diagnostic 24-hour plain-language summaries, contextual caregiver advice, and explainable alert notes. |
+| **Deterministic Fallback Layer** | **CareBeat Clinical Heuristics Engine** | Local, rule-based algorithmic engine in `ai_service.py` providing 100% offline fallback summaries when external AI is unavailable. |
+| **Simulation and Replay** | **Python (`random`, `math`, `csv`)** | Built-in Gaussian drift generator (`simulator.py`) and Kaggle dataset replayer (60,000 records) with instant anomaly triggers. |
+| **IoT & Hardware Ingestion** | **HTTP REST / JSON (`POST /measurements`)** | Device-independent schema compatible with ESP32 Wi-Fi microcontrollers, dynamic simulators, and dataset replayers. |
+| **Auditory & Voice Alerts** | **Browser SpeechSynthesis API** | Spoken vital readouts ("Read Vitals Aloud"), audible emergency sirens, and scheduled medication reminders. |
+| **Configuration** | **`config.json` / Environment Variables** | All secrets, tokens, and configurable threshold defaults isolated from source code. |
 
-**Why this stack:** zero-cost, no build step, runs on any laptop, exceptionally easy to demo and evaluate. The Python backend handles all logic; the browser frontend is served as static assets.
+**Why this stack:** Zero runtime cost, zero build step, deploys to any cloud platform in seconds, exceptionally easy to demo and evaluate. The Python FastAPI backend handles business rules and telemetry ingestion; the browser frontend is delivered seamlessly from the same origin.
 
 ---
 

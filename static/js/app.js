@@ -20,10 +20,13 @@ const state = {
   activeView: null,          // 'patient' or 'caregiver' — null before login
   activeRole: null,          // 'patient' or 'caregiver'
   activeCaregiverTab: 'telemetry',
+  activeCommDevice: 'whatsapp', // 'whatsapp' or 'sms'
   loggedInUser: null,        // { role, name }
   selectedPatientId: 'p1',
+  caregiverAssignedPatients: ['p1', 'p2'], // Strict limit: max 2 patients assigned per caregiver
   patients: [],
   alerts: [],
+  whatsappInbox: [],
   selectedPatientHistory: [],
   audioEnabled: true,
   ws: null,
@@ -58,6 +61,13 @@ function spawnLoginParticles() {
 const DEMO_CREDS = {
   patient:   { user: 'patient',   pass: 'care',   name: 'Demo Patient A' },
   caregiver: { user: 'caregiver', pass: 'care',   name: 'Priya Nair'     }
+};
+
+const PATIENT_LOGIN_NAMES = {
+  p1: 'Demo Patient A',
+  p2: 'Demo Patient B',
+  p3: 'Demo Patient C',
+  p4: 'Demo Patient D'
 };
 
 // Step 1: card clicked — reveal the patient picker inside the card
@@ -98,7 +108,10 @@ function doLoginWithPatient(event, role, patientId) {
 
 function doLogin(event, role) {
   if (event && event.preventDefault) event.preventDefault();
-  const cred = DEMO_CREDS[role] || { name: role === 'patient' ? 'Demo Patient A' : 'Priya Nair' };
+  const baseCred = DEMO_CREDS[role] || { name: role === 'patient' ? 'Demo Patient A' : 'Priya Nair' };
+  const cred = role === 'patient'
+    ? { ...baseCred, name: PATIENT_LOGIN_NAMES[state.selectedPatientId] || baseCred.name }
+    : baseCred;
 
   // Animate out login screen
   state.activeRole = role;
@@ -137,10 +150,12 @@ function doLogin(event, role) {
     loadAlerts();
     loadMetrics();
     loadSmsInbox();
+    loadWhatsAppInbox();
 
     if (!state._intervalsStarted) {
       state._intervalsStarted = true;
       setInterval(loadSmsInbox, 4000);
+      setInterval(loadWhatsAppInbox, 3500);
       setInterval(loadAlerts,   5000);
       setInterval(loadMetrics,  7000);
     }
@@ -214,6 +229,7 @@ function setCaregiverTab(tabId) {
     loadPatientTips(state.selectedPatientId);
   } else if (tabId === 'family') {
     loadSmsInbox();
+    loadWhatsAppInbox();
     loadHandoverNotes(state.selectedPatientId);
   } else if (tabId === 'system') {
     loadMetrics();
@@ -231,6 +247,8 @@ function switchView(viewName) {
   document.querySelectorAll('.view-section').forEach(sec => {
     sec.classList.toggle('active', sec.id === `view-${viewName}`);
   });
+  const appRoot = document.getElementById('appRoot');
+  if (appRoot) appRoot.classList.toggle('patient-mode', viewName === 'patient');
 
   if (viewName === 'caregiver') {
     renderCaregiverDashboard();
@@ -374,6 +392,8 @@ function handleWebSocketMessage(msg) {
     const lbl = document.getElementById('currentSourceLabel');
     if (lbl) lbl.textContent = msg.source;
     loadPatients();
+  } else if (msg.type === 'whatsapp_new') {
+    loadWhatsAppInbox();
   }
 }
 
@@ -381,6 +401,7 @@ function handleNewAlert(alert) {
   showSiren(alert);
   loadAlerts();
   loadSmsInbox();
+  loadWhatsAppInbox();
   if (alert.severity === 'Critical' || alert.alert_type === 'sos') {
     speakNotification(`Critical Alert for ${alert.patient_name || alert.patient_id}: ${alert.explanation}`);
   }
@@ -479,17 +500,33 @@ function renderPatientCards() {
   const container = document.getElementById('patientCardsGrid');
   if (!container) return;
 
-  container.innerHTML = state.patients.map(p => {
+  // Filter to caregiver's assigned cohort: max 2 patients
+  // If caregiver has selected another patient (e.g. p3 or p4), dynamically include that patient so they can view any patient separately
+  let displayPatients = state.patients.filter(p => state.caregiverAssignedPatients.includes(p.patient_id));
+  if (displayPatients.length === 0) displayPatients = state.patients.slice(0, 2);
+
+  // If a patient outside the 2 is selected (e.g. from picker), ensure the 2 visible cards focus on active pair
+  if (!displayPatients.some(p => p.patient_id === state.selectedPatientId)) {
+    const activePt = state.patients.find(p => p.patient_id === state.selectedPatientId);
+    if (activePt) displayPatients = [activePt, displayPatients[0]];
+  }
+
+  container.innerHTML = displayPatients.map((p, idx) => {
     const m = p.latest_measurement || {};
     const isSelected = p.patient_id === state.selectedPatientId;
     const cond = p.condition_tags ? p.condition_tags.join(', ') : 'General Care';
     const statusClass = p.status_color || 'normal';
+    const sys = m.systolic_bp != null ? Math.round(m.systolic_bp) : 122;
+    const dia = m.diastolic_bp != null ? Math.round(m.diastolic_bp) : 80;
 
     return `
-      <div class="patient-card status-${statusClass} ${isSelected ? 'selected' : ''}" onclick="selectPatient('${p.patient_id}')">
+      <div class="patient-card status-${statusClass} ${isSelected ? 'selected' : ''}" onclick="selectCaregiverPatient('${p.patient_id}')">
         <div class="card-top">
           <div class="patient-info">
-            <h3>${p.name}</h3>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-size:0.75rem;font-weight:800;background:var(--brand-light);color:var(--brand-dark);padding:2px 8px;border-radius:var(--r-full);">Patient Slot ${idx + 1}</span>
+              <h3>${p.name}</h3>
+            </div>
             <div class="patient-meta">Age ${p.age} • ${cond}</div>
           </div>
           <span class="status-pill ${statusClass}">
@@ -516,15 +553,54 @@ function renderPatientCards() {
               ${m.temperature != null ? Number(m.temperature).toFixed(1) : '--'}<span class="vital-unit"> °C</span>
             </div>
           </div>
+          <div class="vital-box">
+            <span class="vital-label">Blood Press.</span>
+            <div class="vital-value" id="val-bp-${p.patient_id}">
+              ${sys}/${dia}<span class="vital-unit"> mmHg</span>
+            </div>
+          </div>
         </div>
 
-        <div class="card-footer">
+        <div class="card-footer" style="display:flex;justify-content:space-between;align-items:center;">
           <span>Source: <strong>${m.source || 'simulator'}</strong></span>
-          <span class="health-score-badge">Score: ${p.health_score != null ? p.health_score : 95}/100</span>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span class="health-score-badge">Score: ${p.health_score != null ? p.health_score : 95}/100</span>
+            <span style="font-size:0.75rem;font-weight:700;color:${isSelected ? 'var(--caregiver)' : 'var(--text-muted)'};">
+              ${isSelected ? '● ACTIVE DASHBOARD' : 'Click to Focus →'}
+            </span>
+          </div>
         </div>
       </div>
     `;
   }).join('');
+
+  // Update switcher button active state in header
+  updatePatientSwitcherButtons();
+}
+
+function updatePatientSwitcherButtons() {
+  const btn1 = document.getElementById('cgBtn-p1');
+  const btn2 = document.getElementById('cgBtn-p2');
+  if (btn1) btn1.classList.toggle('active', state.selectedPatientId === 'p1');
+  if (btn2) btn2.classList.toggle('active', state.selectedPatientId === 'p2');
+
+  const label = document.getElementById('caregiverActivePatientLabel');
+  if (label) {
+    const cur = state.patients.find(pt => pt.patient_id === state.selectedPatientId);
+    label.textContent = cur ? `${cur.name} (${cur.patient_id.toUpperCase()})` : state.selectedPatientId;
+  }
+}
+
+function selectCaregiverPatient(pid) {
+  state.selectedPatientId = pid;
+  renderPatientCards();
+  renderSelectedPatientDetail();
+  loadPatientHistory(pid);
+  showToast(`Switched caregiver focus to: ${PATIENT_LOGIN_NAMES[pid] || pid}`);
+}
+
+function selectPatient(pid) {
+  selectCaregiverPatient(pid);
 }
 
 function renderPatientCardVitals(p) {
@@ -532,16 +608,15 @@ function renderPatientCardVitals(p) {
   const hrEl   = document.getElementById(`val-hr-${p.patient_id}`);
   const spo2El = document.getElementById(`val-spo2-${p.patient_id}`);
   const tempEl = document.getElementById(`val-temp-${p.patient_id}`);
+  const bpEl   = document.getElementById(`val-bp-${p.patient_id}`);
   if (hrEl   && m.heart_rate  != null) hrEl.innerHTML   = `${Math.round(m.heart_rate)}<span class="vital-unit"> BPM</span>`;
   if (spo2El && m.spo2        != null) spo2El.innerHTML = `${Math.round(m.spo2)}<span class="vital-unit"> %</span>`;
   if (tempEl && m.temperature != null) tempEl.innerHTML = `${Number(m.temperature).toFixed(1)}<span class="vital-unit"> °C</span>`;
-}
-
-function selectPatient(pid) {
-  state.selectedPatientId = pid;
-  renderPatientCards();
-  renderSelectedPatientDetail();
-  loadPatientHistory(pid);
+  if (bpEl) {
+    const sys = m.systolic_bp != null ? Math.round(m.systolic_bp) : 122;
+    const dia = m.diastolic_bp != null ? Math.round(m.diastolic_bp) : 80;
+    bpEl.innerHTML = `${sys}/${dia}<span class="vital-unit"> mmHg</span>`;
+  }
 }
 
 async function renderSelectedPatientDetail() {
@@ -555,11 +630,47 @@ async function renderSelectedPatientDetail() {
   const famScoreEl = document.getElementById('familyPatientScore');
   if (famScoreEl) famScoreEl.textContent = `${p.health_score != null ? p.health_score : 95}/100`;
 
+  const famCondEl = document.getElementById('familyPatientConditionTags');
+  if (famCondEl) {
+    const condTags = p.condition_tags ? p.condition_tags.join(', ') : 'Continuous Care';
+    famCondEl.textContent = `${condTags} • Age ${p.age} • Continuous Monitoring`;
+  }
+
+  // Bind Family Contact and Caregiver Details with Masked Numbers
+  try {
+    const res = await fetch(`/patients/${p.patient_id}`);
+    if (res.ok) {
+      const data = await res.json();
+      const contacts = data.family_contacts || [];
+      const primaryContact = contacts.find(c => c.priority === 'primary') || contacts[0];
+      const caregiver = data.caregiver || { name: 'Priya Nair', phone: '+91 9844455566' };
+
+      const cgNameEl = document.getElementById('familyCaregiverName');
+      const cgPhoneEl = document.getElementById('familyCaregiverPhone');
+      const cgCallBtn = document.getElementById('familyCallCaregiverBtn');
+      if (cgNameEl) cgNameEl.textContent = caregiver.name;
+      if (cgPhoneEl) cgPhoneEl.textContent = caregiver.phone ? maskPhoneNumberString(caregiver.phone) : '+91 98XXXXXX66';
+      if (cgCallBtn && caregiver.phone) cgCallBtn.href = `tel:${caregiver.phone}`;
+
+      const fcNameEl = document.getElementById('familyContactName');
+      const fcRelEl = document.getElementById('familyContactRelation');
+      const fcPhoneEl = document.getElementById('familyContactPhone');
+      if (primaryContact) {
+        if (fcNameEl) fcNameEl.textContent = primaryContact.name;
+        if (fcRelEl) fcRelEl.textContent = primaryContact.relation;
+        if (fcPhoneEl) fcPhoneEl.textContent = primaryContact.phone_masked || maskPhoneNumberString(primaryContact.phone_raw || '+91 9876543210');
+      }
+    }
+  } catch (e) {
+    console.error('Error fetching patient details for family view:', e);
+  }
+
   loadCareTasks(p.patient_id);
   loadMedicines(p.patient_id);
   loadPatientTips(p.patient_id);
   loadThresholdConfig(p.patient_id);
   loadHandoverNotes(p.patient_id);
+  updatePatientSwitcherButtons();
 }
 
 // ==========================================================================
@@ -571,11 +682,18 @@ async function loadCareTasks(pid) {
     if (res.ok) {
       const tasks = await res.json();
       const wrap = document.getElementById('careTasksList');
-      if (!wrap) return;
-      if (tasks.length === 0) {
-        wrap.innerHTML = `<div style="font-size:0.85rem;color:var(--text-muted);padding:8px 0;">No pending care tasks today. 🎉</div>`;
-      } else {
-        wrap.innerHTML = tasks.map(t => `
+      const patientWrap = document.getElementById('patientCareTasksList');
+      const patientBadge = document.getElementById('patientTasksBadge');
+      const pendingCount = tasks.filter(t => t.status !== 'done').length;
+
+      if (patientBadge) {
+        patientBadge.textContent = pendingCount === 0 ? 'All Done' : `${pendingCount} To Do`;
+        patientBadge.className = `patient-section-badge ${pendingCount === 0 ? 'ok' : ''}`;
+      }
+
+      const caregiverHtml = tasks.length === 0
+        ? `<div style="font-size:0.85rem;color:var(--text-muted);padding:8px 0;">No pending care tasks today.</div>`
+        : tasks.map(t => `
           <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 4px;border-bottom:1px solid var(--border);">
             <div>
               <strong style="font-size:0.88rem;color:var(--ink);">${t.task_type}</strong>
@@ -586,7 +704,24 @@ async function loadCareTasks(pid) {
             </button>
           </div>
         `).join('');
-      }
+
+      const patientHtml = tasks.length === 0
+        ? `<div class="patient-loading-row">No activities scheduled today.</div>`
+        : tasks.map(t => `
+          <div class="patient-med-item">
+            <div>
+              <div class="patient-med-name">${t.task_type}</div>
+              <div class="patient-med-sub">Scheduled: ${t.due_time.split(' ')[1] || t.due_time}</div>
+            </div>
+            ${t.status === 'done'
+              ? `<span style="font-size:0.9rem;color:var(--ok-fg);font-weight:800;background:var(--ok-bg);padding:8px 14px;border-radius:var(--r-full);white-space:nowrap;">Done</span>`
+              : `<button class="btn-sm btn-ack" style="font-size:0.92rem;padding:10px 16px;border-radius:var(--r-sm);font-weight:800;white-space:nowrap;" onclick="updateTaskStatus('${t.task_id}', 'done')">Done</button>`
+            }
+          </div>
+        `).join('');
+
+      if (wrap) wrap.innerHTML = caregiverHtml;
+      if (patientWrap) patientWrap.innerHTML = patientHtml;
     }
   } catch (e) { console.error('Failed to load care tasks:', e); }
 }
@@ -829,13 +964,12 @@ async function renderPatientSosView() {
     condEl.textContent = `${tags} • Age ${p.age} • Continuous Monitoring`;
   }
 
-  const selEl = document.getElementById('patientViewSelector');
-  if (selEl) selEl.value = p.patient_id;
-
   updatePatientBigVitals(m);
   loadPatientMedsForPatientScreen(p.patient_id);
+  loadCareTasks(p.patient_id);
   setupSosButton();
   updatePatientStatusBanner(p);
+  updatePatientHealthScore(p);
   renderWaterTracker();
 
   // Load family contact for emergency speed-dial card
@@ -853,9 +987,23 @@ async function renderPatientSosView() {
         const callBtn = document.getElementById('familyCardCallBtn');
         if (nameEl) nameEl.textContent = primaryContact.name;
         if (relEl) relEl.textContent = `${primaryContact.relation} • Primary Family Contact`;
-        if (phoneEl) phoneEl.textContent = primaryContact.phone_masked;
+        if (phoneEl) phoneEl.textContent = primaryContact.phone_masked || maskPhoneNumberString(primaryContact.phone_raw || '+91 9876543210');
         if (avEl) avEl.textContent = primaryContact.name.charAt(0);
         if (callBtn) callBtn.href = `tel:${primaryContact.phone_raw || '+919876543210'}`;
+      }
+
+      // Also dynamically map caregiver on duty in patient screen
+      const cg = data.caregiver || { name: 'Priya Nair', shift: 'Morning', phone: '+91 9844455566' };
+      const cgCard = document.querySelector('.caregiver-contact-card');
+      if (cgCard) {
+        const cgStrong = cgCard.querySelector('strong');
+        const cgSub = cgCard.querySelector('div[style*="font-weight:700"]');
+        const cgPhone = cgCard.querySelector('div[style*="color:var(--text-muted)"]');
+        const cgBtn = cgCard.querySelector('a');
+        if (cgStrong) cgStrong.textContent = cg.name;
+        if (cgSub) cgSub.textContent = `✓ Verified • ${cg.shift || 'Morning Shift'}`;
+        if (cgPhone) cgPhone.textContent = maskPhoneNumberString(cg.phone);
+        if (cgBtn && cg.phone) cgBtn.href = `tel:${cg.phone}`;
       }
     }
   } catch (e) { console.error('Failed to load patient contacts:', e); }
@@ -923,6 +1071,29 @@ function updatePatientStatusBanner(p) {
   }
 }
 
+function updatePatientHealthScore(p) {
+  const score = p.health_score != null ? p.health_score : null;
+  const details = p.health_score_details || {};
+  const breakdown = details.breakdown || {};
+
+  const scoreValue = document.getElementById('healthScoreValue');
+  const scoreBadge = document.getElementById('healthScoreBadge');
+  const scoreVitals = document.getElementById('scoreVitals');
+  const scoreAlerts = document.getElementById('scoreAlerts');
+  const scoreMeds = document.getElementById('scoreMeds');
+  const scoreCheckins = document.getElementById('scoreCheckins');
+
+  if (scoreValue) scoreValue.textContent = score != null ? score : '--';
+  if (scoreBadge) {
+    scoreBadge.textContent = score != null ? `${score}/100` : 'Loading...';
+    scoreBadge.className = `patient-section-badge ${score == null || score >= 80 ? 'ok' : ''}`;
+  }
+  if (scoreVitals) scoreVitals.textContent = `${breakdown.vitals_pts ?? '--'}/${breakdown.vitals_max ?? '--'}`;
+  if (scoreAlerts) scoreAlerts.textContent = `${breakdown.alert_pts ?? '--'}/${breakdown.alert_max ?? '--'}`;
+  if (scoreMeds) scoreMeds.textContent = `${breakdown.medicine_pts ?? '--'}/${breakdown.medicine_max ?? '--'}`;
+  if (scoreCheckins) scoreCheckins.textContent = `${breakdown.checkin_pts ?? '--'}/${breakdown.checkin_max ?? '--'}`;
+}
+
 function onPatientViewSelect(pid) {
   state.selectedPatientId = pid;
   renderPatientSosView();
@@ -936,9 +1107,18 @@ async function loadPatientMedsForPatientScreen(pid) {
     if (res.ok) {
       const meds = await res.json();
       const wrap = document.getElementById('patientMedsList');
+      const badge = document.getElementById('patientMedsBadge');
       if (!wrap) return;
+      const pendingCount = meds.filter(m => {
+        const latestLog = (m.logs && m.logs[0]) || null;
+        return !(latestLog && latestLog.status === 'taken');
+      }).length;
+      if (badge) {
+        badge.textContent = meds.length === 0 ? 'None Today' : (pendingCount === 0 ? 'All Taken' : `${pendingCount} Due`);
+        badge.className = `patient-section-badge ${pendingCount === 0 ? 'ok' : ''}`;
+      }
       if (meds.length === 0) {
-        wrap.innerHTML = `<div style="font-size:0.92rem;color:var(--text-muted);padding:8px 0;">No medicines scheduled today. 🌟</div>`;
+        wrap.innerHTML = `<div class="patient-loading-row">No medicines scheduled today.</div>`;
       } else {
         wrap.innerHTML = meds.map(m => {
           const latestLog = (m.logs && m.logs[0]) || null;
@@ -1097,6 +1277,12 @@ async function triggerSosDirect() {
   } catch (e) { console.error(e); }
 }
 
+function handleQuickSos() {
+  if (confirm('Request immediate emergency caregiver & family assistance?')) {
+    triggerSosDirect();
+  }
+}
+
 async function recordCheckIn() {
   try {
     const res = await fetch('/checkin', {
@@ -1174,8 +1360,132 @@ async function submitHandoverNote() {
 }
 
 // ==========================================================================
-// FAMILY SMS INBOX
 // ==========================================================================
+// FAMILY SMS & WHATSAPP PHONE INBOXES
+// ==========================================================================
+function maskPhoneNumberString(phone) {
+  if (!phone) return '+91 9XXXXXX10';
+  const cleaned = phone.trim();
+  if (cleaned.length < 6) return 'XXXXXX';
+  const prefix = cleaned.length >= 8 ? cleaned.slice(0, 5) : cleaned.slice(0, 2);
+  const suffix = cleaned.slice(-2);
+  return `${prefix}XXXXXX${suffix}`;
+}
+
+function switchCommDevice(type) {
+  state.activeCommDevice = type;
+  const btnWa  = document.getElementById('btnDeviceWhatsApp');
+  const btnSms = document.getElementById('btnDeviceSms');
+  const viewWa = document.getElementById('deviceMockupWhatsApp');
+  const viewSms= document.getElementById('deviceMockupSms');
+
+  if (btnWa) btnWa.classList.toggle('active', type === 'whatsapp');
+  if (btnSms) btnSms.classList.toggle('active', type === 'sms');
+
+  if (viewWa) viewWa.style.display = type === 'whatsapp' ? 'block' : 'none';
+  if (viewSms) viewSms.style.display = type === 'sms' ? 'block' : 'none';
+
+  if (type === 'whatsapp') loadWhatsAppInbox();
+  else loadSmsInbox();
+}
+
+function openWhatsAppDrawerForFamily() {
+  setCaregiverTab('family');
+  switchCommDevice('whatsapp');
+  const input = document.getElementById('whatsappQuickMsgInput');
+  if (input) {
+    const cur = state.patients.find(pt => pt.patient_id === state.selectedPatientId);
+    input.value = `Checking in on ${cur ? cur.name : 'patient'} status. All vitals normal?`;
+    input.focus();
+  }
+}
+
+async function loadWhatsAppInbox() {
+  try {
+    const res = await fetch('/notifications/whatsapp-inbox');
+    if (res.ok) {
+      const msgs = await res.json();
+      state.whatsappInbox = msgs;
+      renderWhatsAppMessages();
+    }
+  } catch (e) { console.error('Failed to load WhatsApp messages:', e); }
+}
+
+function renderWhatsAppMessages() {
+  const wrap = document.getElementById('whatsappPhoneScreen');
+  if (!wrap) return;
+
+  const msgs = state.whatsappInbox;
+  if (!msgs || msgs.length === 0) {
+    wrap.innerHTML = `<div style="text-align:center;font-size:0.76rem;color:#8696A0;margin-top:40px;">No WhatsApp alerts yet.<br>Emergency alerts and caregiver updates appear here in real time.</div>`;
+    return;
+  }
+
+  wrap.innerHTML = msgs.slice(0, 15).map(m => {
+    const isOutbound = m.recipient_type === 'manual' || m.channel === 'whatsapp_outbound';
+    const isCrit = m.message.includes('CRITICAL') || m.message.includes('Emergency') || m.message.includes('🚨');
+    const timeStr = m.sent_at ? m.sent_at.split('T')[1].split('.')[0] : new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    const safeMaskedPhone = m.phone_masked || maskPhoneNumberString(m.phone || '+91 98XXXXXX10');
+
+    return `
+      <div class="wa-bubble ${isOutbound ? 'outbound' : ''} ${isCrit ? 'crit' : ''}">
+        ${!isOutbound ? `
+          <div class="wa-bubble-sender">${m.recipient_name || 'CareBeat Alert Bot'}</div>
+          <div class="wa-bubble-phone">To: ${safeMaskedPhone}</div>
+        ` : `
+          <div class="wa-bubble-sender" style="color:#A7F3D0;">Caregiver Priya Nair</div>
+        `}
+        <div class="wa-bubble-text">${escapeHtml(m.message)}</div>
+        <div class="wa-bubble-time">
+          <span>${timeStr}</span>
+          <span class="wa-ticks">✓✓</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  wrap.scrollTop = wrap.scrollHeight;
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\*(.*?)\*/g, '<strong>$1</strong>');
+}
+
+async function sendCaregiverWhatsAppMsg() {
+  const input = document.getElementById('whatsappQuickMsgInput');
+  if (!input || !input.value.trim()) return;
+
+  const text = input.value.trim();
+  const curPatient = state.patients.find(pt => pt.patient_id === state.selectedPatientId);
+  const pName = curPatient ? curPatient.name : 'Patient';
+
+  input.value = '';
+
+  try {
+    const res = await fetch('/notifications/send-whatsapp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        patient_id: state.selectedPatientId,
+        recipient_name: `Family of ${pName}`,
+        phone: '+91 98XXXXXX10',
+        message: text
+      })
+    });
+    if (res.ok) {
+      showToast('💬 WhatsApp update sent to family contact!');
+      loadWhatsAppInbox();
+    }
+  } catch (e) {
+    console.error('Failed to send WhatsApp message:', e);
+  }
+}
+
 async function loadSmsInbox() {
   try {
     const res = await fetch('/notifications/sms-inbox');
@@ -1188,7 +1498,7 @@ async function loadSmsInbox() {
       } else {
         wrap.innerHTML = msgs.slice(0, 10).map(m => `
           <div class="sms-bubble ${m.message.includes('CRITICAL') || m.message.includes('SOS') ? 'crit' : ''}">
-            <div style="font-weight:700;margin-bottom:2px;font-size:0.75rem;">To: ${m.phone_masked}</div>
+            <div style="font-weight:700;margin-bottom:2px;font-size:0.75rem;">To: ${m.phone_masked || maskPhoneNumberString(m.phone)}</div>
             <div>${m.message}</div>
             <div class="sms-time">${m.sent_at ? m.sent_at.split('T')[1].split('.')[0] : ''}</div>
           </div>

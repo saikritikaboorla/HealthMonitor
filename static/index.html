@@ -81,12 +81,13 @@
 
       <!-- Patient picker — revealed on card click -->
       <div class="login-patient-picker" id="patientPicker-caregiver">
-        <div class="login-picker-label">Start monitoring:</div>
+        <div class="login-picker-label">Select Patient Dashboard (Max 2 per shift):</div>
         <div class="login-picker-btns">
-          <button class="login-picker-btn caregiver-picker-btn" onclick="doLoginWithPatient(event,'caregiver','p1')">Patient 1<span>Heart</span></button>
-          <button class="login-picker-btn caregiver-picker-btn" onclick="doLoginWithPatient(event,'caregiver','p2')">Patient 2<span>Hypertension</span></button>
-          <button class="login-picker-btn caregiver-picker-btn" onclick="doLoginWithPatient(event,'caregiver','p3')">Patient 3<span>Diabetic</span></button>
-          <button class="login-picker-btn caregiver-picker-btn" onclick="doLoginWithPatient(event,'caregiver','p4')">Patient 4<span>Elderly</span></button>
+          <button class="login-picker-btn caregiver-picker-btn" onclick="doLoginWithPatient(event,'caregiver','p1')">Patient 1<span>Heart Care</span></button>
+          <button class="login-picker-btn caregiver-picker-btn" onclick="doLoginWithPatient(event,'caregiver','p2')">Patient 2<span>High BP</span></button>
+        </div>
+        <div style="font-size:0.73rem;color:rgba(255,255,255,0.65);margin-top:6px;text-align:center;">
+          🔒 Priya Nair's active morning cohort: <strong>Max 2 patients</strong> (Patient 1 &amp; Patient 2)
         </div>
       </div>
 
@@ -165,28 +166,19 @@
     <section id="view-patient" class="view-section">
       <div class="patient-dashboard-wrap">
 
-        <!-- Top Bar: Name + Read Aloud + Patient Selector -->
+        <!-- Top Bar: Patient identity + voice support -->
         <div class="patient-top-bar">
           <div class="patient-status-indicator">
             <div class="status-beacon" id="patientBeacon"></div>
             <div>
-              <div style="font-size:1.25rem;font-weight:800;color:var(--ink);" id="patientScreenName">Demo Patient A</div>
-              <div style="font-size:0.82rem;color:var(--text-muted);" id="patientScreenCondition">Heart Patient • Monitoring Active</div>
+              <div class="patient-screen-title" id="patientScreenName">Demo Patient A</div>
+              <div class="patient-screen-subtitle" id="patientScreenCondition">Heart Patient • Monitoring Active</div>
             </div>
           </div>
-          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <div class="patient-top-actions">
             <button class="btn-read-aloud" onclick="readPatientStatusAloud()" title="Speak current vitals out loud">
               <span>🔊</span> Read Vitals Aloud
             </button>
-            <div style="display:flex;align-items:center;gap:8px;">
-              <label style="font-size:0.8rem;font-weight:600;color:var(--text-muted);">Switch:</label>
-              <select id="patientViewSelector" class="role-select" onchange="onPatientViewSelect(this.value)">
-                <option value="p1">Patient A (Heart)</option>
-                <option value="p2">Patient B (Hypertension)</option>
-                <option value="p3">Patient C (Diabetic)</option>
-                <option value="p4">Patient D (Elderly)</option>
-              </select>
-            </div>
           </div>
         </div>
 
@@ -202,7 +194,45 @@
           <span style="font-size:0.75rem;font-weight:800;background:white;color:var(--ok-fg);padding:5px 14px;border-radius:var(--r-full);box-shadow:var(--sh-sm);">● LIVE ACTIVE</span>
         </div>
 
-        <!-- ── 2. Live Vitals (Big Cards) ── -->
+        <!-- ── 2. Emergency + Daily Check-In ── -->
+        <div class="patient-action-grid">
+          <section class="patient-emergency-card" aria-labelledby="patientEmergencyTitle">
+            <div class="patient-section-header">
+              <h3 id="patientEmergencyTitle">Emergency Help</h3>
+              <span class="patient-section-badge urgent">Always Available</span>
+            </div>
+            <p class="patient-section-desc">Use this only when you need immediate help. Your caregiver and family will be alerted.</p>
+            <div class="patient-sos-panel">
+              <button id="patientSosHoldBtn"
+                      class="sos-hold-btn"
+                      aria-label="Hold 3 seconds or tap once for Emergency SOS">
+                <span class="sos-label-main">SOS</span>
+                <span id="sosBtnSubtext" class="sos-subtext">Hold 3s or Tap</span>
+              </button>
+              <div class="sos-help-copy">
+                <strong>Emergency Alert</strong>
+                <span>Press for urgent assistance.</span>
+              </div>
+            </div>
+          </section>
+
+          <section class="patient-checkin-section">
+            <div class="patient-section-header">
+              <h3>Daily Check-In</h3>
+              <span class="patient-section-badge" id="checkinBadge">Pending Today</span>
+            </div>
+            <p class="patient-section-desc">Tap once each day to let your caregiver know you are okay.</p>
+            <button class="btn-checkin-big" onclick="recordCheckIn()" aria-label="I am okay, check in now">
+              <span>I'm OK</span>
+              <small>Check In Now</small>
+            </button>
+            <div id="patientCheckInStatusText" class="patient-last-checkin">
+              Last Check-In: Today at 09:15 AM (Confirmed)
+            </div>
+          </section>
+        </div>
+
+        <!-- ── 3. Live Vitals (Big Cards) ── -->
         <div class="big-vitals-row">
           <div class="big-vital-card hr">
             <div class="big-vital-icon">💓</div>
@@ -234,53 +264,37 @@
           </div>
         </div>
 
-        <!-- ── 3. Daily Check-In ── -->
-        <div class="patient-checkin-section">
-          <div class="patient-section-header">
-            <h3>✅ Daily Check-In</h3>
-            <span class="patient-section-badge" id="checkinBadge">Pending Today</span>
-          </div>
-          <p class="patient-section-desc">Tap the button below once a day to let your caregiver know you are okay. Just one tap!</p>
-          <button class="btn-checkin-big" onclick="recordCheckIn()" aria-label="I am okay – check in now">
-            ✅ I'm OK — Check In Now
-          </button>
-          <div id="patientCheckInStatusText" class="patient-last-checkin">
-            Last Check-In: Today at 09:15 AM (Confirmed ✓)
-          </div>
+        <!-- ── 4. Daily Plan ── -->
+        <div class="patient-daily-grid">
+          <section class="patient-meds-section">
+            <div class="patient-section-header">
+              <h3>Today's Medications</h3>
+              <span id="patientMedsBadge" class="patient-section-badge">Loading...</span>
+            </div>
+            <p class="patient-section-desc">Take each medicine at the right time. Press Mark Taken after taking it.</p>
+            <div id="patientMedsList" class="patient-meds-list">
+              <div class="patient-loading-row">Loading your medications...</div>
+            </div>
+          </section>
+
+          <section class="patient-tasks-section">
+            <div class="patient-section-header">
+              <h3>Today's Activities</h3>
+              <span id="patientTasksBadge" class="patient-section-badge">Loading...</span>
+            </div>
+            <p class="patient-section-desc">Simple care activities for today. Tap Done when finished.</p>
+            <div id="patientCareTasksList" class="patient-tasks-list">
+              <div class="patient-loading-row">Loading today's activities...</div>
+            </div>
+          </section>
         </div>
 
-        <!-- ── 4. Today's Medications ── -->
-        <div class="patient-meds-section">
+        <!-- ── 5. Wellness ── -->
+        <div class="patient-wellness-grid">
+        <section class="patient-mood-card">
           <div class="patient-section-header">
-            <h3>💊 Today's Medications</h3>
-            <span id="patientMedsBadge" class="patient-section-badge">Loading...</span>
-          </div>
-          <p class="patient-section-desc">Take each medicine at the right time. Press <strong>Mark Taken</strong> after swallowing it with water.</p>
-          <div id="patientMedsList" class="patient-meds-list">
-            <div class="patient-loading-row">Loading your medications...</div>
-          </div>
-          <button class="patient-helper-btn" onclick="fastForwardMedicine()" style="margin-top:12px;">
-            ⏩ Demo: Trigger Next Medicine Reminder
-          </button>
-        </div>
-
-        <!-- ── 5. Daily Care Activities ── -->
-        <div class="patient-tasks-section">
-          <div class="patient-section-header">
-            <h3>📋 Today's Activities</h3>
-            <span id="patientTasksBadge" class="patient-section-badge">Loading...</span>
-          </div>
-          <p class="patient-section-desc">These are your care activities for today. Tap <strong>Done</strong> when you finish each one — your caregiver can see your progress!</p>
-          <div id="patientCareTasksList" class="patient-tasks-list">
-            <div class="patient-loading-row">Loading today's activities...</div>
-          </div>
-        </div>
-
-        <!-- ── 6. Feeling / Mood Check ── -->
-        <div class="patient-mood-card">
-          <div class="patient-section-header">
-            <h3>😊 How Are You Feeling?</h3>
-            <span style="font-size:0.8rem;color:var(--text-muted);">1-Tap · No Typing Needed</span>
+            <h3>How Are You Feeling?</h3>
+            <span class="patient-section-note">1-Tap, No Typing</span>
           </div>
           <p class="patient-section-desc">Tap one button below to let your caregiver know how you feel right now.</p>
           <div class="mood-buttons-grid">
@@ -298,22 +312,22 @@
             </button>
           </div>
           <div id="patientMoodStatus" class="patient-mood-feedback" style="display:none;"></div>
-        </div>
+        </section>
 
-        <!-- ── 7. Daily Water Intake ── -->
-        <div class="patient-water-card">
+        <section class="patient-water-card">
           <div class="patient-section-header">
-            <h3>💧 Daily Water Intake</h3>
+            <h3>Daily Water</h3>
             <span id="waterTrackerCount" class="water-target-pill">0 of 6 Glasses</span>
           </div>
-          <p class="patient-section-desc">Tap each glass after drinking water. Your goal is 6 glasses a day to stay healthy!</p>
+          <p class="patient-section-desc">Tap a glass after drinking water. Your daily goal is 6 glasses.</p>
           <div id="waterTrackerCups" class="water-cups-grid"></div>
+        </section>
         </div>
 
-        <!-- ── 8. Health Score ── -->
-        <div class="patient-health-score-card">
+        <!-- ── 6. Health Score ── -->
+        <section class="patient-health-score-card">
           <div class="patient-section-header">
-            <h3>🏥 Your Health Score Today</h3>
+            <h3>Your Health Score Today</h3>
             <span class="patient-section-badge ok" id="healthScoreBadge">Loading...</span>
           </div>
           <p class="patient-section-desc">This score is calculated from your vitals, medicines taken, check-ins, and any alerts today.</p>
@@ -329,13 +343,13 @@
               <div class="score-row"><span>✅ Check-ins</span><span id="scoreCheckins" class="score-val">--</span></div>
             </div>
           </div>
-        </div>
+        </section>
 
-        <!-- ── 9. Contacts: Caregiver + Family + Tips ── -->
+        <!-- ── 7. Contacts: Caregiver + Family + Tips ── -->
         <div class="patient-widgets-grid-3">
 
-          <div class="panel-card" style="margin-bottom:0;">
-            <h4>🩺 On-Duty Caregiver</h4>
+          <section class="panel-card" style="margin-bottom:0;">
+            <h4>On-Duty Caregiver</h4>
             <div class="caregiver-contact-card">
               <div class="caregiver-avatar">P</div>
               <div>
@@ -347,10 +361,10 @@
                 </div>
               </div>
             </div>
-          </div>
+          </section>
 
-          <div class="panel-card" style="margin-bottom:0;" id="patientFamilyCard">
-            <h4>👨‍👩‍👧 Family Emergency Speed-Dial</h4>
+          <section class="panel-card" style="margin-bottom:0;" id="patientFamilyCard">
+            <h4>Family Speed-Dial</h4>
             <div class="caregiver-contact-card" style="border-left:3px solid var(--patient);">
               <div class="caregiver-avatar" style="background:linear-gradient(135deg, #FF6B6B, #E85555);box-shadow:var(--sh-red);" id="familyCardAvatar">R</div>
               <div>
@@ -362,44 +376,29 @@
                 </div>
               </div>
             </div>
-          </div>
+          </section>
 
-          <div class="panel-card" style="margin-bottom:0;">
-            <h4>📌 Helpful Reminders</h4>
+          <section class="panel-card" style="margin-bottom:0;">
+            <h4>Helpful Reminders</h4>
             <div style="font-size:0.88rem;color:var(--text-muted);line-height:1.7;">
               <div style="padding:8px 0;border-bottom:1px solid var(--border);">💡 Always take medicines with a full glass of water.</div>
               <div style="padding:8px 0;border-bottom:1px solid var(--border);">💡 Press <strong>I'm OK</strong> every morning to confirm you're well.</div>
               <div style="padding:8px 0;border-bottom:1px solid var(--border);">💡 Drink at least 6 glasses of water daily.</div>
-              <div style="padding:8px 0;">💡 The red <strong>SOS</strong> button (bottom-right) is for emergencies.</div>
+              <div style="padding:8px 0;">💡 The red <strong>SOS</strong> button is for emergencies.</div>
             </div>
-          </div>
+          </section>
 
         </div>
-
-        <!-- Bottom spacer so SOS button doesn't cover last card -->
-        <div style="height:130px;" aria-hidden="true"></div>
 
       </div>
     </section>
 
-    <!-- ══════════════════════════════════════════════════════════════
-         FLOATING SOS — Fixed position, always on screen (patient view)
-    ══════════════════════════════════════════════════════════════ -->
-    <div id="floatingSosWrap" class="floating-sos-wrap" style="position:fixed;bottom:20px;right:20px;width:260px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);box-shadow:var(--sh-md);padding:12px;z-index:1000;" role="complementary" aria-label="Emergency SOS">
-      <div class="floating-sos-pulse"></div>
-      <button id="patientSosHoldBtn"
-              class="sos-hold-btn"
-              aria-label="Hold 3 seconds or tap once for Emergency SOS"
-              onclick="handleSosTap()">
-        <span class="sos-label-main">SOS</span>
-        <span id="sosBtnSubtext" class="sos-subtext">Hold 3s · Tap once</span>
+    <div id="patientFixedSos" class="patient-fixed-sos" role="complementary" aria-label="Emergency SOS always available">
+      <button class="patient-fixed-sos-btn" onclick="handleQuickSos()" aria-label="Emergency SOS">
+        <span class="patient-fixed-sos-main">SOS</span>
+        <span class="patient-fixed-sos-sub">Emergency</span>
       </button>
-      <div class="floating-sos-label">EMERGENCY</div>
-      <h4 style="margin:12px 0 8px;font-size:1rem;color:var(--ink);">Today's Tasks</h4>
-      <div id="taskList" class="task-list" style="max-height:180px;overflow-y:auto;margin-bottom:8px;"></div>
     </div>
-
-    </section>
 
 
     <!-- ══════════════════════════════════════════════════════════════
@@ -415,19 +414,36 @@
             <div class="cg-name-row">
               <span class="cg-name">Priya Nair</span>
               <span class="cg-status-badge">✓ Active Shift: Morning</span>
+              <span class="stream-pill" style="background:#EEF2FF;color:#4338CA;border-color:#C7D2FE;">Max 2 Assigned Patients</span>
               <span id="caregiverActiveStreamBadge" class="stream-pill">Live Math Simulator</span>
             </div>
-            <div class="cg-sub">Caregiver Telemetry Center • Managing 4 Cohort Patients</div>
+            <div class="cg-sub">
+              Caregiver Telemetry Center • Active Patient Focused: <strong id="caregiverActivePatientLabel" style="color:var(--ink);">Patient 1 (Demo Patient A)</strong>
+            </div>
           </div>
         </div>
 
         <div class="cg-actions-row">
-          <span style="font-size:0.78rem;color:var(--text-muted);font-weight:600;">Simulation Triggers:</span>
-          <div class="anomaly-btns">
-            <button class="btn-sm btn-anomaly tachy" onclick="triggerAnomaly('tachycardia')" title="Inject Tachycardia Spike for 30s">💓 HR Spike</button>
-            <button class="btn-sm btn-anomaly fever" onclick="triggerAnomaly('fever')" title="Inject High Fever for 60s">🌡️ Fever</button>
-            <button class="btn-sm btn-anomaly spo2" onclick="triggerAnomaly('low_spo2')" title="Inject Hypoxia SpO2 for 30s">🫁 Low SpO₂</button>
-            <button class="btn-sm btn-anomaly emerg" onclick="triggerAnomaly('emergency')" title="Inject Full Emergency Override">🚨 Emergency</button>
+          <div class="cg-patient-switcher-group">
+            <span style="font-size:0.78rem;font-weight:700;color:var(--ink-mid);">Switch Patient:</span>
+            <div id="caregiverPatientTabBtns" class="cg-dual-patient-btns">
+              <button class="cg-patient-btn active" id="cgBtn-p1" onclick="selectCaregiverPatient('p1')">
+                <span class="dot-live"></span> Patient 1 <small>(Demo Patient A)</small>
+              </button>
+              <button class="cg-patient-btn" id="cgBtn-p2" onclick="selectCaregiverPatient('p2')">
+                <span class="dot-live"></span> Patient 2 <small>(Demo Patient B)</small>
+              </button>
+            </div>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+            <span style="font-size:0.75rem;color:var(--text-muted);font-weight:600;">Sim Anomaly:</span>
+            <div class="anomaly-btns">
+              <button class="btn-sm btn-anomaly tachy" onclick="triggerAnomaly('tachycardia')" title="Inject Tachycardia Spike for 30s">💓 HR Spike</button>
+              <button class="btn-sm btn-anomaly fever" onclick="triggerAnomaly('fever')" title="Inject High Fever for 60s">🌡️ Fever</button>
+              <button class="btn-sm btn-anomaly spo2" onclick="triggerAnomaly('low_spo2')" title="Inject Hypoxia SpO2 for 30s">🫁 Low SpO₂</button>
+              <button class="btn-sm btn-anomaly emerg" onclick="triggerAnomaly('emergency')" title="Inject Full Emergency Override">🚨 Emergency</button>
+            </div>
           </div>
         </div>
       </div>
@@ -463,8 +479,11 @@
           <!-- Multi-Patient Telemetry Cards Grid -->
           <div class="section-title-bar">
             <div>
-              <h3>Cohort Patient Telemetry Grid</h3>
-              <p style="font-size:0.82rem;color:var(--text-muted);">Real-time continuous 1-second vital stream. Click any patient to view waveforms and care records.</p>
+              <h3>Assigned Patient Telemetry &amp; Clinical Dashboards (Max 2 Patients)</h3>
+              <p style="font-size:0.82rem;color:var(--text-muted);">Real-time continuous 1-second vital telemetry. Both assigned patients are separated and neatly structured below.</p>
+            </div>
+            <div style="font-size:0.75rem;background:var(--surface-2);border:1px solid var(--border-strong);padding:5px 12px;border-radius:var(--r-full);color:var(--brand-dark);font-weight:700;">
+              🛡️ Caregiver Capacity: 2 of 2 Max Patients Active
             </div>
           </div>
           <div id="patientCardsGrid" class="patient-cards-grid"></div>
@@ -605,7 +624,7 @@
               <div style="display:flex;justify-content:space-between;align-items:flex-start;">
                 <div>
                   <h4>Patient Daily Status: <span id="familyPatientName">Demo Patient A</span></h4>
-                  <div style="font-size:0.82rem;color:var(--text-muted);">Family Read-Only Transparency Portal</div>
+                  <div style="font-size:0.82rem;color:var(--text-muted);" id="familyPatientConditionTags">Heart Patient • Continuous Care</div>
                 </div>
                 <div style="text-align:right;">
                   <span style="font-size:0.75rem;color:var(--text-muted);display:block;">Health Score</span>
@@ -613,11 +632,14 @@
                 </div>
               </div>
               <p style="font-size:0.85rem;color:var(--text-muted);margin:14px 0 10px;">
-                Active Caregiver: <strong>Priya Nair</strong> (Verified) • +91 98XXXXXX66
+                Active Caregiver: <strong id="familyCaregiverName">Priya Nair</strong> (Verified) • <span id="familyCaregiverPhone">+91 98XXXXXX66</span>
               </p>
+              <div style="font-size:0.83rem;color:var(--text-muted);margin-bottom:12px;">
+                Registered Family Contact: <strong id="familyContactName">Rahul Sharma</strong> (<span id="familyContactRelation">Son</span>) • <span id="familyContactPhone">+91 9XXXXXX10</span>
+              </div>
               <div style="display:flex;gap:10px;flex-wrap:wrap;">
-                <a href="tel:+919844455566" class="btn-sm btn-ack" style="text-decoration:none;">📞 Call Caregiver</a>
-                <a href="https://wa.me/919844455566?text=Checking+in+on+patient+status" target="_blank" class="btn-sm" style="text-decoration:none;background:#25D366;color:white;border:none;">💬 WhatsApp</a>
+                <a id="familyCallCaregiverBtn" href="tel:+919844455566" class="btn-sm btn-ack" style="text-decoration:none;">📞 Call Caregiver</a>
+                <button class="btn-sm" style="background:#25D366;color:white;border:none;cursor:pointer;" onclick="openWhatsAppDrawerForFamily()">💬 WhatsApp Caregiver &amp; Family</button>
               </div>
             </div>
 
@@ -644,14 +666,39 @@
             </div>
           </div>
 
-          <!-- Right Column: Simulated SMS Mockup -->
+          <!-- Right Column: Dual Device Mockup (SMS + WhatsApp) -->
           <div class="family-right-col">
             <div class="panel-card phone-panel-card">
-              <h4 style="text-align:center;margin-bottom:8px;">📱 Simulated SMS Family Phone Inbox</h4>
-              <p style="text-align:center;font-size:0.78rem;color:var(--text-muted);margin-bottom:16px;">
-                Live dispatch receiver for Critical and SOS emergency broadcasts with masked numbers.
-              </p>
-              <div class="phone-mockup">
+              <div class="device-switch-pills">
+                <button class="device-pill-btn active" id="btnDeviceWhatsApp" onclick="switchCommDevice('whatsapp')">💬 WhatsApp Alerts</button>
+                <button class="device-pill-btn" id="btnDeviceSms" onclick="switchCommDevice('sms')">📱 SMS Inbox</button>
+              </div>
+
+              <!-- WhatsApp Phone Mockup -->
+              <div id="deviceMockupWhatsApp" class="phone-mockup wa-phone-mockup">
+                <div class="phone-screen wa-screen">
+                  <div class="wa-header">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                      <span style="font-size:1.1rem;">💚</span>
+                      <div style="text-align:left;">
+                        <div style="font-size:0.82rem;font-weight:700;">CareBeat WhatsApp Alerts</div>
+                        <div style="font-size:0.68rem;opacity:0.85;">Official Encrypted Alert Channel</div>
+                      </div>
+                    </div>
+                    <span style="font-size:0.7rem;background:rgba(255,255,255,0.2);padding:2px 6px;border-radius:10px;">Masked</span>
+                  </div>
+
+                  <div id="whatsappPhoneScreen" class="wa-chat-body"></div>
+
+                  <div class="wa-input-bar">
+                    <input id="whatsappQuickMsgInput" type="text" placeholder="Type WhatsApp alert or inquiry..." onkeydown="if(event.key==='Enter')sendCaregiverWhatsAppMsg()">
+                    <button class="btn-wa-send" onclick="sendCaregiverWhatsAppMsg()" title="Send WhatsApp Message">➤</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- SMS Phone Mockup -->
+              <div id="deviceMockupSms" class="phone-mockup" style="display:none;">
                 <div class="phone-screen">
                   <div class="phone-header">SMS Notifications (Family)</div>
                   <div id="familyPhoneScreen"></div>

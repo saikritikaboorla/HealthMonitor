@@ -722,6 +722,30 @@ def get_notification_history():
 def get_simulated_sms_inbox():
     return notification_service.simulated_sms_inbox
 
+@app.get("/notifications/whatsapp-inbox")
+def get_simulated_whatsapp_inbox():
+    return notification_service.simulated_whatsapp_inbox
+
+@app.post("/notifications/send-whatsapp")
+async def send_simulated_whatsapp(payload: Dict[str, Any]):
+    patient_id = payload.get("patient_id", "p1")
+    recipient_name = payload.get("recipient_name", "Family")
+    phone = payload.get("phone", "+91 98XXXXXX10")
+    message = payload.get("message", "Checking in on patient status")
+    now_iso = datetime.now().isoformat()
+    record = notification_service._deliver_whatsapp(
+        alert_id="manual_wa",
+        patient_id=patient_id,
+        recipient_id="manual_user",
+        recipient_name=recipient_name,
+        recipient_type="manual",
+        phone=phone,
+        message=message,
+        now_iso=now_iso
+    )
+    await manager.broadcast({"type": "whatsapp_new", "data": record})
+    return {"status": "sent", "item": record}
+
 @app.get("/audit")
 def get_audit_trail():
     conn = get_db()

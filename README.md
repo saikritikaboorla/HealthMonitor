@@ -3,7 +3,8 @@
 > **Prototype & Non-Diagnostic Notice:**  
 > SmartCare is an affordable patient-monitoring and caregiver-coordination prototype. It does **not** diagnose disease, recommend treatment, or replace professional medical assessment. All demonstration data is dynamically simulated or replayed from open healthcare datasets. All alerts are prototype alerts only.
 
-**Track 3 — Affordable Health Tech** | **Hardware-Ready Software Prototype (₹0 to demo)**
+**Track 3 — Affordable Health Tech** | **Hardware-Ready Software Prototype (₹0 to demo)**  
+**Live Production URL (Unified Full-Stack Vercel):** [https://carebeat-health-monitor.vercel.app](https://carebeat-health-monitor.vercel.app)
 
 ---
 
@@ -15,7 +16,7 @@
 4. [Technology Stack](#4-technology-stack)
 5. [Key System Features](#5-key-system-features)
 6. [Architecture & Ingestion Pipeline](#6-architecture--ingestion-pipeline)
-7. [Quick Start Guide](#7-quick-start-guide)
+7. [Quick Start & Deployment Guide](#7-quick-start--deployment-guide)
 8. [Configuration (config.json)](#8-configuration-configjson)
 9. [3-Minute Live Demo Script](#9-3-minute-live-demo-script)
 10. [Evaluation & Metrics (eval_test.py)](#10-evaluation--metrics-eval_testpy)
@@ -31,7 +32,7 @@
 Elderly individuals and patients requiring regular vitals monitoring often lack timely attention when their vital signs fluctuate abnormally or when they need urgent assistance. Commercial remote-monitoring setups are expensive, technically complicated for seniors, and prone to alert fatigue, while family members living remotely lack real-time visibility.
 
 ### Solution
-SmartCare is an affordable, software-first platform that connects continuous vital-sign monitoring, false-alarm reduction, dual specialized dashboards, generative AI summaries with local offline fallbacks, and multi-tier emergency escalation across caregivers and families.
+SmartCare is an affordable, software-first platform that connects continuous vital-sign monitoring, false-alarm reduction, dual specialized dashboards, generative AI summaries with local offline fallbacks, simulated WhatsApp & SMS family emergency channels, and multi-tier emergency escalation across caregivers and families.
 
 ---
 
@@ -43,18 +44,20 @@ Upon logging in or switching roles, users access one of two purpose-built dashbo
 Designed specifically for seniors and vulnerable patients with minimal cognitive load and high accessibility:
 - **Giant One-Touch SOS Button:** Instant Critical alert broadcast bypassing all threshold delays.
 - **One-Touch "I'm OK" Check-in:** Simple daily wellness confirmation without requiring typing.
-- **Calm, High-Contrast Vitals:** Giant-font vitals with reassuring status chips (e.g., `Heart Rate: 74 BPM (Normal)`).
+- **Calm, High-Contrast Vitals:** Giant-font vitals with reassuring status chips (Heart Rate, SpO₂, Temperature, and Blood Pressure).
 - **Medication Due Checklist:** Visual reminder cards with a one-tap "Taken" button and browser voice prompts.
-- **Caregiver On-Duty Status:** Clear display of active caregiver presence with one-tap emergency call link.
+- **Caregiver On-Duty & Family Speed-Dial:** Clear display of active caregiver and family contacts with masked phone numbers (`+91 9XXXXXX10`).
+- **1-Tap Feeling Check & Hydration Tracker:** Senior wellness tracker with voice responses and 6-glass water logging.
 
 ### 🩺 Caregiver Dashboard (Clinical-Telemetry UI)
-Designed for nursing staff, home aides, and family caregivers managing multiple patients:
-- **Multi-Patient Telemetry Grid:** Live monitoring cards with color-coded alerts and Health Scores (0–100).
-- **Real-Time Sparklines & Charts:** 1-second live vitals stream powered by Chart.js.
-- **Actionable Alert Queue:** Alert timeline with Acknowledge (mutes siren) and Resolve workflows with mandatory care notes.
+Designed for nursing staff, home aides, and family caregivers managing assigned patients:
+- **Separated Dual-Patient Dashboards (Max 2 Patients Capacity):** Neatly structured telemetry cards enforcing a strict 2-patient workload limit per caregiver shift (Patient 1 and Patient 2 in distinct slots).
+- **Instant Patient Focus Switcher:** Top bar quick-toggle buttons allowing the caregiver to switch between Patient 1 and Patient 2 effortlessly.
+- **Real-Time Sparklines & Charts:** 1-second live vitals stream powered by Chart.js with warning and critical limit overlays.
+- **Actionable Alert Queue:** Alert timeline with Claim Lock (60s), Acknowledge (mutes siren), and Resolve workflows with mandatory care notes.
 - **Live Threshold Sandbox:** Modify per-patient condition thresholds and preview alert impact on historical data before saving.
-- **Care-Task Checklist & Handover Notes:** Daily task tracking (vitals check, meals, mobility) and structured handover logs between shifts.
-- **Escalation Countdown:** Live visual countdown before unacknowledged alerts escalate to secondary family contacts.
+- **Care-Task Checklist & Medication Adherence:** Routine nursing task checklist and adherence tracking with fast-forward demo capability.
+- **Family Shift Handover & Dual Device Mockup:** Shift handover notes alongside simulated WhatsApp and SMS phone inboxes with real-time text alert dispatches.
 
 ---
 
@@ -85,31 +88,32 @@ SmartCare employs a dual-engine architecture combining generative AI insights wi
 
 ## 4. Technology Stack
 
-| Layer | Technology | Purpose |
+| Layer | Technology | Purpose & Implementation Details |
 |---|---|---|
-| **Backend** | Python 3.11+ / FastAPI | Async REST API, native WebSocket server, background task manager |
-| **Database** | SQLite (WAL Mode) | Zero-configuration database with append-only audit trail logging |
-| **Frontend** | Vanilla HTML5 / CSS3 / ES6+ JavaScript | Zero-build, single-page web dashboard with responsive, high-contrast layouts |
-| **Charts** | Chart.js (CDN) | Real-time vitals sparklines, waveform trends, and threshold limit overlays |
-| **Real-Time Stream** | Native WebSocket (`/ws`) | 1-second live telemetry broadcasts and instant alert synchronization |
-| **AI Layer** | Google Gemini API (`gemini-1.5-flash`) | Non-diagnostic 24h summaries, trend explanations, and caregiver tips |
-| **Fallback Engine** | Local Clinical Heuristics Engine | Offline rule-based statistical summarizer ensuring zero-failure continuity |
-| **Simulation** | Python (`random`, `math`, `csv`) | Math-based dynamic simulator (`simulator.py`) + 60,000-row Kaggle dataset replayer |
-| **Notifications** | Telegram Bot API + Simulated SMS Panel | Real-world Telegram bot messaging; in-dashboard SMS toast panel |
-| **Voice Alerts** | Browser SpeechSynthesis API | Loud siren tones and spoken voice alerts for Critical/SOS events |
+| **Full-Stack Deployment** | **Vercel Serverless Platform** | Single unified production deployment hosting both frontend SPA and FastAPI serverless backend on one URL (`https://carebeat-health-monitor.vercel.app`). Configured via `vercel.json` with `@vercel/python` builder. |
+| **Backend Framework** | **Python 3.11+ / FastAPI** | High-performance asynchronous REST API, Uvicorn server, WebSocket communication layer, and background task management. |
+| **Database** | **SQLite (WAL Mode)** | Lightweight relational database with automatic `/tmp` synchronization on serverless runtime and append-only audit trail logging. |
+| **Frontend Architecture** | **Vanilla HTML5, CSS3, ES6+ JS** | Zero-build single-page application (SPA), eliminating npm/Node build overhead. High contrast, senior accessible, responsive UI. |
+| **Data Visualization** | **Chart.js (CDN)** | Hardware-accelerated canvas charts rendering live heart rate waveforms, warning bounds, and critical threshold limits. |
+| **Real-Time Communication** | **FastAPI WebSocket (`/ws`) + Cloud Polling Fallback** | Native persistent WebSocket for local execution, automatically paired with an intelligent sub-second polling fallback on serverless platforms. |
+| **Emergency Channels** | **WhatsApp & SMS Mockup Inboxes** | Dedicated WhatsApp alerts section with masked phone numbers (`+91 9XXXXXX10`), interactive 2-way messaging, Telegram bot integration, and SMS delivery. |
+| **AI Intelligence Layer** | **Google Gemini API (`gemini-1.5-flash`)** | Generates non-diagnostic 24h summaries, trend explanations, and contextual caregiver wellness suggestions. |
+| **Deterministic Engine** | **Local Clinical Heuristics Engine** | 100% offline rule-based statistical summarizer guaranteeing resilience when external AI is offline. |
+| **Simulation & Replay** | **Python (`random`, `math`, `csv`)** | Mathematical Gaussian drift generator (`simulator.py`) + 60,000-row Kaggle healthcare dataset replayer. |
+| **Auditory & Voice Alerts** | **Browser SpeechSynthesis API** | Spoken vital sign readouts ("Read Vitals Aloud"), audible emergency sirens, and medication speech prompts. |
 
 ---
 
 ## 5. Key System Features
 
-1. **Multi-Source Vitals Ingestion:** Tracks Heart Rate (BPM), Temperature (°C), SpO₂ (%), and Blood Pressure (mmHg) from dynamic simulator, CSV replay, or manual entry.
-2. **5-Second False-Alarm Filter:** Requires vitals to remain outside boundaries for 5 consecutive seconds before firing an alert, filtering noisy sensor spikes.
-3. **Condition Threshold Profiles:** Pre-configured profiles for Heart Patient, Diabetic, Hypertension, and Default Elderly, all editable in real time.
-4. **Caregiver Module:** Skill matching, shifts, care task checklists, daily notes, and structured handover logs between shifts.
-5. **Family Connectivity:** Mandatory family contact on registration, masked phone display, direct alerts on Critical/SOS, and read-only family view.
-6. **Instant Emergency Escalation:** Warning alerts notify caregivers; Critical & SOS alerts notify caregivers and family simultaneously. Unacknowledged alerts auto-escalate to secondary contacts after 120 seconds.
-7. **Medicine Reminders & "I'm OK" Check-in:** Multi-stage adherence tracking (Due → Caregiver Alert → Family Escalation) and daily senior wellness check-ins.
-8. **Transparent Health Score (0–100):** Clear compliance indicator based on vitals stability, alert history, medicine adherence, and check-in completion.
+1. **Multi-Source Vitals Ingestion:** Tracks 4 primary vitals: Heart Rate (BPM), Temperature (°C), SpO₂ (%), and Blood Pressure (mmHg) from dynamic simulator, CSV replay, or manual entry.
+2. **Caregiver Cohort Capacity (Max 2 Patients):** Enforces a clean 2-patient active cohort per caregiver shift, presenting Patient 1 and Patient 2 in distinct, organized clinical dashboards.
+3. **Simulated WhatsApp Emergency Section:** Real-time WhatsApp emergency alert dispatches sent to caregiver and primary family contacts on Critical & SOS events with strict phone masking with X's (`+91 9XXXXXX10`).
+4. **5-Second False-Alarm Persistence Filter:** Requires vitals to breach threshold boundaries for 5 consecutive seconds before firing an alert, filtering noisy sensor spikes.
+5. **Condition-Based Threshold Sandbox:** Custom limits per condition profile with client-side historical replay preview before saving.
+6. **Instant Emergency Escalation:** Warning alerts notify caregivers; Critical & SOS alerts notify caregivers, WhatsApp, and family simultaneously. Unacknowledged alerts auto-escalate to secondary contacts after 120 seconds.
+7. **Medicine Adherence & Daily Check-In:** Adherence logs with fast-forward demo capability and 1-tap "I'm OK" senior wellness confirmation.
+8. **Transparent Health Score (0–100):** Real-time algorithm scoring vitals stability, alert penalty, medicine completion, and daily check-ins.
 
 ---
 
@@ -163,7 +167,7 @@ The backend processes readings identically regardless of source. An ESP32 postin
 - Modern Web Browser (Chrome, Firefox, Safari, Edge)
 - No physical hardware required (runs fully in software)
 
-### Setup & Run
+### Setup & Run (Localhost)
 
 ```bash
 # 1. Clone repository and navigate to folder
@@ -185,6 +189,17 @@ uvicorn main:app --reload
 ```
 
 Open **`http://localhost:8000`** in your browser.
+
+### Deploy to Vercel (Unified Frontend + Backend in One URL)
+
+Both the frontend static client and the FastAPI backend are deployed under a single domain via `vercel.json`:
+
+```bash
+# Deploy to Vercel Production
+vercel --prod
+```
+
+**Live Deployment URL:** [https://carebeat-health-monitor.vercel.app](https://carebeat-health-monitor.vercel.app)
 
 ### Optional: Telegram Notifications
 Set in `config.json` (copy from `config.example.json`):
