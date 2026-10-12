@@ -1,0 +1,22 @@
+{
+  "name": "carebeat-health-monitor",
+  "builds": [
+    {
+      "src": "api/index.py",
+      "use": "@vercel/python",
+      "config": {
+        "includeFiles": ["carebeat.db", "config.json", "Synthetic_patient-HealthCare-Monitoring_dataset.csv", "static/**"]
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/static/(.*)",
+      "dest": "/static/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "api/index.py"
+    }
+  ]
+}

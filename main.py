@@ -72,8 +72,9 @@ async def lifespan(app: FastAPI):
         import seed
         seed.seed()
 
-    # Launch background simulator loop
-    simulator_task = asyncio.create_task(simulator.run_loop())
+    # Launch background simulator loop (if not in Vercel serverless)
+    if not os.environ.get("VERCEL"):
+        simulator_task = asyncio.create_task(simulator.run_loop())
     logger.info("CareBeat startup complete.")
     yield
     # Shutdown
@@ -117,7 +118,12 @@ async def websocket_endpoint(websocket: WebSocket):
 # Patients & Registration Endpoints
 # --------------------------------------------------------------------------
 @app.get("/patients")
-def list_patients():
+async def list_patients(step: bool = False):
+    if os.environ.get("VERCEL") or step:
+        try:
+            await simulator.step()
+        except Exception as e:
+            logger.error(f"Error stepping simulator: {e}")
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM patients")

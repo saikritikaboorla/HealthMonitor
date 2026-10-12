@@ -4,7 +4,18 @@ import json
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "carebeat.db")
+import shutil
+
+if os.environ.get("VERCEL"):
+    DB_PATH = "/tmp/carebeat.db"
+    source_db = os.path.join(os.path.dirname(os.path.abspath(__file__)), "carebeat.db")
+    if os.path.exists(source_db) and not os.path.exists(DB_PATH):
+        try:
+            shutil.copy2(source_db, DB_PATH)
+        except Exception:
+            pass
+else:
+    DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "carebeat.db")
 
 def get_db():
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)

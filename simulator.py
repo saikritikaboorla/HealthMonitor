@@ -175,67 +175,54 @@ class HealthcareSimulator:
             "source": f"dataset-replay"
         }
 
+    async def step(self):
+        try:
+            if self.source == "simulator":
+                for pid, baseline in DEMO_PATIENTS_BASELINES.items():
+                    reading = self.generate_simulated_reading(pid, baseline, self.t)
+                    alert = await engine.process_measurement(reading)
+                    payload = {
+                        "type": "vital_update",
+                        "data": reading,
+                        "source": "simulator"
+                    }
+                    await self.broadcast(payload)
+                    if alert:
+                        await self.broadcast({
+                            "type": "alert_new",
+                            "data": alert
+                        })
+                self.t += 1.0
+            elif self.source == "dataset-replay":
+                reading = self.read_next_csv_row()
+                if reading:
+                    alert = await engine.process_measurement(reading)
+                    await self.broadcast({
+                        "type": "vital_update",
+                        "data": reading,
+                        "source": "dataset-replay",
+                        "row_num": self.csv_row_count
+                    })
+                    if alert:
+                        await self.broadcast({
+                            "type": "alert_new",
+                            "data": alert
+                        })
+            escalations = await engine.check_escalations_and_offline()
+            if escalations:
+                for esc in escalations:
+                    await self.broadcast({
+                        "type": "alert_escalated",
+                        "data": esc
+                    })
+        except Exception as e:
+            logger.error(f"Error in simulator step: {e}", exc_info=True)
+
     async def run_loop(self):
         self.running = True
         logger.info("CareBeat Simulator loop started.")
-
-        tick = 0
         while self.running:
-            try:
-                if self.source == "simulator":
-                    # Generate a reading for each of the 4 demo patients
-                    for pid, baseline in DEMO_PATIENTS_BASELINES.items():
-                        reading = self.generate_simulated_reading(pid, baseline, self.t)
-                        # Process through rules engine
-                        alert = await engine.process_measurement(reading)
-
-                        # Broadcast live reading
-                        payload = {
-                            "type": "vital_update",
-                            "data": reading,
-                            "source": "simulator"
-                        }
-                        await self.broadcast(payload)
-
-                        if alert:
-                            await self.broadcast({
-                                "type": "alert_new",
-                                "data": alert
-                            })
-
-                    self.t += 1.0
-
-                elif self.source == "dataset-replay":
-                    # Replay one row per second from Kaggle CSV
-                    reading = self.read_next_csv_row()
-                    if reading:
-                        alert = await engine.process_measurement(reading)
-                        await self.broadcast({
-                            "type": "vital_update",
-                            "data": reading,
-                            "source": "dataset-replay",
-                            "row_num": self.csv_row_count
-                        })
-                        if alert:
-                            await self.broadcast({
-                                "type": "alert_new",
-                                "data": alert
-                            })
-
-                # Check escalations and offline status every 5 seconds
-                tick += 1
-                if tick % 5 == 0:
-                    escalations = await engine.check_escalations_and_offline()
-                    if escalations:
-                        for esc in escalations:
-                            await self.broadcast({
-                                "type": "alert_escalated",
-                                "data": esc
-                            })
-
-            except Exception as e:
-                logger.error(f"Error in simulator loop step: {e}", exc_info=True)
-
+            await self.step()
             await asyncio.sleep(1.0)
 
     def stop(self):
