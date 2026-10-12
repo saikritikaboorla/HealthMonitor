@@ -1,10 +1,10 @@
-# CareBeat: Affordable Smart Health Monitoring and Emergency Alert System
+# SmartCare: Affordable Smart Health Monitoring and Emergency Alert System
 
 **Document type:** Project and technical documentation
 **Audience:** Clients, reviewers, judges, and developers building the prototype
 **Status:** Hackathon prototype specification (Track 3 — Affordable Health Tech)
 
-> **Important notice:** CareBeat is a monitoring and caregiver-coordination prototype. It does not diagnose disease, recommend treatment, or replace professional medical assessment. All demonstration data is dynamically simulated or optionally replayed from a public dataset. All alerts are prototype alerts only.
+> **Important notice:** SmartCare is a monitoring and caregiver-coordination prototype. It does not diagnose disease, recommend treatment, or replace professional medical assessment. All demonstration data is dynamically simulated or optionally replayed from a public dataset. All alerts are prototype alerts only.
 
 ---
 
@@ -42,7 +42,7 @@ Elderly people and individuals who need regular health monitoring may not receiv
 
 ### 1.2 Solution
 
-CareBeat is an affordable, software-first platform that connects five things in one workflow:
+SmartCare is an affordable, software-first platform that connects five things in one workflow:
 
 1. **Vital-sign monitoring** — heart rate, body temperature, SpO2, and blood pressure (dynamically simulated by default, optionally replayed from a Kaggle dataset, or manually entered).
 2. **Alert generation** — configurable threshold profiles per patient condition, trend checks, and SOS.
