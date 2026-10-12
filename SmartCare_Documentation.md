@@ -4,7 +4,7 @@
 **Audience:** Clients, reviewers, judges, and developers building the prototype
 **Status:** Hackathon prototype specification (Track 3 — Affordable Health Tech)
 
-> **Important notice:** CareBeat is a monitoring and caregiver-coordination prototype. It does not diagnose disease, recommend treatment, or replace professional medical assessment. All demonstration data is simulated or replayed from public datasets. All alerts are prototype alerts only.
+> **Important notice:** CareBeat is a monitoring and caregiver-coordination prototype. It does not diagnose disease, recommend treatment, or replace professional medical assessment. All demonstration data is dynamically simulated or optionally replayed from a public dataset. All alerts are prototype alerts only.
 
 ---
 
@@ -44,7 +44,7 @@ Elderly people and individuals who need regular health monitoring may not receiv
 
 CareBeat is an affordable, software-first platform that connects five things in one workflow:
 
-1. **Vital-sign monitoring** — heart rate, body temperature, SpO2, and blood pressure (simulated, replayed from a Kaggle dataset, or manually entered).
+1. **Vital-sign monitoring** — heart rate, body temperature, SpO2, and blood pressure (dynamically simulated by default, optionally replayed from a Kaggle dataset, or manually entered).
 2. **Alert generation** — configurable threshold profiles per patient condition, trend checks, and SOS.
 3. **Caregiver coordination** — a structured caregiver module with assignment, shifts, care tasks, and handover notes.
 4. **Family connectivity** — mandatory family contact on every patient, with direct alerts, masked numbers, and a family read-only view.
@@ -122,17 +122,17 @@ Accepts data from four sources and normalizes everything to one JSON format:
 ```json
 {
   "patient_id": "p1",
-  "heart_rate": 98,
-  "temperature": 37.2,
-  "spo2": 96,
-  "timestamp": "2026-10-12T11:00:00",
-  "source": "dataset-replay"
+  "heart_rate": 84,
+  "temperature": 36.7,
+  "spo2": 97,
+  "timestamp": "2026-10-12T12:35:00",
+  "source": "simulator"
 }
 ```
 
 Sources:
-- **Dataset replayer** — reads the Kaggle CSV from `/data`, replays one row per second, loops when file ends.
-- **Synthetic simulator** — generates readings for 4 demo patients with API-triggered anomalies.
+- **Dynamic simulator (default)** — generates realistic vital-sign readings every second for 4 demo patients using math-based noise and drift. Supports API-triggered anomalies for instant demo scenarios. Starts automatically on app launch.
+- **Dataset replayer (optional)** — reads the Kaggle CSV from `/data`, replays one row per second, loops when file ends. Switch to this source from the dashboard or simulator page.
 - **Manual entry form** — caregiver or family enters a value from a physical device.
 - **SOS / check-in** — patient-initiated events that bypass vital checks.
 
@@ -169,7 +169,7 @@ A single `static/index.html` served by FastAPI. Four views accessible via role l
 1. **Seed:** Run `python seed.py` to create 4 demo patients, 2 caregivers, 1 admin, family contacts, and medicines.
 2. **Start:** `uvicorn main:app` then open the browser.
 3. **Select role:** name + role selector (Patient / Caregiver / Family / Admin).
-4. **Data arrives:** replayer or simulator sends readings every second via WebSocket.
+4. **Data arrives:** dynamic simulator sends readings every second per patient via WebSocket by default. Optionally switch to CSV dataset replay from the dashboard.
 5. **Validation:** impossible values (HR 0 or >250, Temp >45 or <30) are marked "sensor error" and quarantined.
 6. **False-alarm filter:** a value must stay beyond a threshold for N consecutive seconds (default 5) before an alert fires.
 7. **Alert fires:** explainable alert created, notification router decides recipients.
@@ -293,14 +293,15 @@ The caregiver's dashboard shows:
 
 ### 7.1 Multi-Source Data Collection
 
-- **Dataset replay:** Kaggle CSV replayed at 1 row/sec; loops when file ends.
-- **Synthetic simulator:** 4 elderly demo patients with configurable baseline and drift; API-triggered anomalies: `/trigger/tachycardia`, `/trigger/fever`, `/trigger/low_spo2`.
+- **Dynamic simulator (default):** generates realistic readings every second for 4 demo patients. Uses math-based noise and drift around a configurable baseline. Produces different data every run. Starts automatically on app launch — no CSV required.
+- **API-triggered anomalies:** `/trigger/tachycardia`, `/trigger/fever`, `/trigger/low_spo2` inject an immediate anomaly into the simulator stream for instant demo scenarios.
+- **Dataset replay (optional):** Kaggle CSV replayed at 1 row/sec; loops when file ends. Switch to this source from the dashboard or simulator page.
 - **Manual entry:** caregiver enters a value from a physical device; stored with `source: manual`.
-- **Simulate Emergency button:** overrides readings for 30 seconds to guarantee a Critical alert during a demo.
+- **Simulate Emergency button:** overrides simulator readings for 30 seconds to guarantee a Critical alert during a demo.
 - **SOS button:** large button on the patient screen; fires an immediate Critical alert regardless of vitals.
 - **"I'm OK" check-in:** large button on the patient screen; missed check-in within a configurable period alerts the caregiver.
 
-Source label is shown on every reading: `dataset-replay`, `simulator`, `manual`, `sos`, `check-in`.
+Source label is shown on every reading: `simulator`, `dataset-replay`, `manual`, `sos`, `check-in`.
 
 ### 7.2 Alert Engine
 
@@ -382,11 +383,55 @@ When editing thresholds, a live preview shows how many alerts the proposed setti
 
 ### 9.1 Role of Data
 
-CareBeat is a rules-based system, not a machine-learning model. Datasets are used for realistic replay, threshold testing, and demo scenarios only — never for training a diagnostic model.
+CareBeat is a rules-based system, not a machine-learning model. The dynamic simulator is the primary and default data source — it generates realistic readings on the fly, requires no files, and supports instant demo scenarios. The Kaggle CSV dataset is available as a secondary source for realistic replay and threshold testing but is not required for the system to run.
 
-### 9.2 Primary Dataset: Synthetic Patient HealthCare Monitoring Dataset
+### 9.2 Primary Data Source: Dynamic Simulator
 
-The repository includes `Synthetic_patient-HealthCare-Monitoring_dataset.csv` — 60,000 records across 13 columns.
+The simulator generates readings every second per patient using math-based noise and configurable baselines. It is the default on app start.
+
+#### Simulator Behavior
+
+| Patient | Baseline HR | Baseline Temp | Baseline SpO2 | Condition tag |
+|---|---|---|---|---|
+| Demo Patient A | 75 BPM | 36.6°C | 98% | heart patient |
+| Demo Patient B | 80 BPM | 36.8°C | 97% | high BP |
+| Demo Patient C | 72 BPM | 37.0°C | 96% | diabetic |
+| Demo Patient D | 70 BPM | 36.5°C | 98% | none (healthy elderly) |
+
+#### Simulator Logic
+
+```python
+import math, random
+from datetime import datetime
+
+def generate_reading(patient_id: str, baseline: dict, t: float) -> dict:
+    hr  = baseline["hr"]  + 5 * math.sin(t / 30) + random.gauss(0, 2)
+    temp = baseline["temp"] + 0.1 * math.sin(t / 60) + random.gauss(0, 0.08)
+    spo2 = baseline["spo2"] + random.gauss(0, 0.5)
+    return {
+        "patient_id": patient_id,
+        "heart_rate": round(hr),
+        "temperature": round(temp, 1),
+        "spo2": round(spo2),
+        "timestamp": datetime.now().isoformat(),
+        "source": "simulator"
+    }
+```
+
+#### API-Triggered Anomalies
+
+| Endpoint | Effect | Duration |
+|---|---|---|
+| `POST /trigger/tachycardia` | HR jumps to 130–145 BPM | 30 seconds |
+| `POST /trigger/fever` | Temp rises to 38.5–39.2°C | 60 seconds |
+| `POST /trigger/low_spo2` | SpO2 drops to 85–89% | 30 seconds |
+| `POST /simulate/emergency` | All vitals go critical simultaneously | 30 seconds |
+
+After the trigger duration, readings return to the normal baseline. This guarantees a demo-ready alert fires within 5 seconds (false-alarm filter default).
+
+### 9.3 Secondary Data Source: Synthetic Patient HealthCare Monitoring Dataset
+
+Available as an optional source. The repository includes `Synthetic_patient-HealthCare-Monitoring_dataset.csv` — 60,000 records across 13 columns.
 
 #### Dataset Schema
 
@@ -432,7 +477,7 @@ Because column names contain spaces and units, the replayer reads a configurable
 | Diabetes Mellitus | 12,167 | Elevated temperature | diabetic |
 | Fall incidents | 3,074 | Fall Detection = Yes | → auto Critical SOS alert |
 
-### 9.3 Replayer Logic
+### 9.4 Dataset Replayer Logic
 
 1. Read the CSV row by row at 1 row/sec.
 2. Map columns via `config.json`.
@@ -441,10 +486,21 @@ Because column names contain spaces and units, the replayer reads a configurable
 5. Assign blocks of rows to demo patients (e.g., rows 1–15,000 → patient p1, etc.).
 6. Loop the file when it ends.
 
-### 9.4 Data Handling Rules
+### 9.5 Source Switching
 
-- Label every reading with its source: `dataset-replay`, `simulator`, `manual`.
-- Never present replayed data as a patient's own historical baseline.
+The active data source can be switched at runtime without restarting the server:
+
+| Endpoint | Action |
+|---|---|
+| `GET /demo/source` | Returns current active source (`simulator` or `dataset-replay`) |
+| `POST /demo/source` | Switches source. Body: `{"source": "simulator"}` or `{"source": "dataset-replay"}` |
+
+The dashboard also exposes a **Source** toggle button. Switching source mid-session labels the transition point on the chart ("Replay started" or "Simulator started") so the change is always visible.
+
+### 9.6 Data Handling Rules
+
+- Label every reading with its source: `simulator`, `dataset-replay`, `manual`.
+- Never present replayed or simulated data as a patient's own historical baseline.
 - Use only `Predicted Disease` internally for condition-tag assignment; never expose it on the dashboard.
 - Store dataset name, version, URL, and retrieval date in `data/README.md`.
 - Map replayed rows to fictional demo patient profiles only.
@@ -634,7 +690,7 @@ Every screen shows a permanent top banner:
 - Care-task checklist: due tasks, overdue badges.
 - Medicine reminders: next scheduled medicine, Taken button.
 - Daily care tips card.
-- Source switch: Dataset / Simulator.
+- Source switch: Simulator (default) / Dataset Replay.
 - Simulate Emergency button.
 - Threshold settings panel (live edit, with sandbox preview).
 - History view.
@@ -690,7 +746,8 @@ A "Metrics" screen accessible from the admin view, for hackathon judges:
 | Sensor errors quarantined | Count of impossible-value readings blocked |
 | Medicines taken vs missed | Count and percentage per patient |
 | Check-ins completed vs missed | Count per patient |
-| Dataset replay uptime | Rows replayed, loop count, current row |
+| Simulator uptime | Readings generated per patient, active anomaly triggers fired |
+| Dataset replay uptime (if active) | Rows replayed, loop count, current row |
 | Notification delivery | Attempted, succeeded, failed, retried, per channel |
 
 A short test script (`eval_test.py`) replays a fixed 5-minute segment of the dataset and prints these numbers to the console, so judges can verify the system independently.
@@ -718,9 +775,9 @@ A short test script (`eval_test.py`) replays a fixed 5-minute segment of the dat
 | Caregiver marks medicine taken with note | Log updated, family can see note |
 | Fall Detection = Yes in CSV row | Immediate Critical alert (SOS pipeline) |
 | Data Accuracy < 90% | "Low Signal" badge on reading |
-| No CSV present | Synthetic simulator starts automatically |
+| No CSV present | Dynamic simulator starts automatically (it is the default) |
 | Telegram token missing | Console log + "Telegram (simulated)" toast shown |
-| Dataset loops | Replay continues seamlessly |
+| Dataset loops | Replay continues seamlessly (when dataset replay is the active source) |
 | Family views patient | Read-only, no alert controls |
 | Admin verifies caregiver | Status changes to Verified |
 | Fee negotiation: Agreed | Assignment enabled |
@@ -730,10 +787,10 @@ A short test script (`eval_test.py`) replays a fixed 5-minute segment of the dat
 
 ## 18. Implementation Roadmap
 
-### Stage 1: Backend, Replayer, Alert Engine, Basic Dashboard, Acknowledge
+### Stage 1: Backend, Simulator, Alert Engine, Basic Dashboard, Acknowledge
 - FastAPI app and SQLite schema (core tables).
-- Dataset replayer with configurable column mapping.
-- Synthetic simulator fallback.
+- Dynamic simulator (`simulator.py`) as the default data source — starts on app launch, generates readings every second per patient.
+- Dataset replayer (`replayer.py`) as an optional secondary source with configurable column mapping.
 - Threshold evaluation and false-alarm filter.
 - Trend check rule.
 - WebSocket broadcast of readings and alerts.
@@ -766,8 +823,8 @@ A short test script (`eval_test.py`) replays a fixed 5-minute segment of the dat
 
 ### Stage 5: Seed Data, README, Demo Script
 - `seed.py`: creates 4 demo patients (one per cohort), 2 caregivers, 1 admin, family contacts, medicines, assignments.
-- `eval_test.py`: replays a 5-minute segment and prints metrics.
-- `README.md`: setup, column mapping guide, architecture diagram, cost table, honest limits, future scope.
+- `eval_test.py`: runs the simulator for 5 minutes with a fixed seed and prints metrics to the console.
+- `README.md`: setup, simulator config guide, architecture diagram, cost table, honest limits, future scope.
 - Demo script (3 minutes).
 
 ---
@@ -775,6 +832,8 @@ A short test script (`eval_test.py`) replays a fixed 5-minute segment of the dat
 ## 19. Scope and Limitations
 
 - The prototype is fully software-based. No ESP32 or physical sensor is required.
+- The dynamic simulator is the default and primary data source. It generates different readings every run and requires no external files.
+- The Kaggle CSV dataset is an optional secondary source for dataset replay. The app runs fully without the CSV file present.
 - Telegram notifications are real only if a bot token and chat IDs are configured in `config.json`. Otherwise the system simulates them with a console log and a UI toast.
 - SMS is always simulated (Family phone panel). An optional Twilio adapter is enabled only if credentials are present.
 - Caregiver verification is a manual admin review — not connected to any police, government, or background-check database.
@@ -792,14 +851,14 @@ A short test script (`eval_test.py`) replays a fixed 5-minute segment of the dat
 ## 20. Deliverables
 
 1. Working software-only CareBeat application.
-2. Dataset replayer (`replayer.py`) with configurable column mapping via `config.json`.
-3. Synthetic simulator fallback (`simulator.py`) with API-triggered anomalies.
+2. Dynamic simulator (`simulator.py`) — default data source, generates realistic readings every second per patient with API-triggered anomaly support.
+3. Dataset replayer (`replayer.py`) — optional secondary source with configurable column mapping via `config.json`.
 4. `main.py` — FastAPI backend, WebSocket server, alert engine.
 5. `database.py` — SQLite schema and queries.
 6. `tips.py` — rule-based care tips generator.
 7. `static/index.html` — full single-page dashboard (caregiver, family, patient, admin views).
 8. `seed.py` — creates 4 demo patients, 2 caregivers, 1 admin, family contacts, medicines.
-9. `eval_test.py` — 5-minute segment replay with metrics printout.
+9. `eval_test.py` — 5-minute simulator run (fixed seed) with metrics printout.
 10. `config.json` — all configurable values (no secrets hardcoded).
 11. `requirements.txt`.
 12. `data/README.md` — dataset name, version, URL, license, column mapping documentation.
@@ -821,6 +880,8 @@ A short test script (`eval_test.py`) replays a fixed 5-minute segment of the dat
 - **Data quality awareness:** Low Signal badge; stale data shown as "No recent data", never as normal.
 - **Medicine adherence tracking:** Taken/Missed with caregiver override and family visibility.
 - **Evaluation page:** alert latency, suppression counts, and medicine adherence metrics for judges.
+- **Dynamic simulator as default:** generates different, realistic readings every run without needing any files — no CSV required to start the app.
+- **Instant demo triggers:** `/trigger/tachycardia`, `/trigger/fever`, `/trigger/low_spo2` fire anomalies on demand, guaranteeing a live alert within 5 seconds for any judge demo.
 - **Zero-cost, zero-hardware demo:** runs on a laptop, simulates the full elderly care workflow end to end.
 - **IoT-ready:** same JSON ingestion interface accepts real ESP32 readings without code changes.
 
