@@ -3,331 +3,188 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CareBeat SmartCare — Smart Health Monitoring & Emergency Coordination</title>
+  <title>CareBeat — Smart Health Monitoring</title>
   <link rel="stylesheet" href="/static/css/style.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 
-  <!-- Top Sticky Disclaimer Strip -->
+<!-- ══════════════════════════════════════════════════════════════
+     LOGIN SCREEN
+══════════════════════════════════════════════════════════════ -->
+<div id="loginScreen">
+
+  <!-- Animated background blobs -->
+  <div class="login-blob b1"></div>
+  <div class="login-blob b2"></div>
+  <div class="login-blob b3"></div>
+  <div class="login-blob b4"></div>
+
+  <!-- Floating particles (created by JS) -->
+
+  <!-- Brand / Logo -->
+  <div class="login-brand">
+    <div class="login-brand-logo">♥</div>
+    <div class="login-brand-name">CareBeat</div>
+    <div class="login-brand-tag">Smart Health, Always Within Reach</div>
+
+    <!-- Live ECG animation -->
+    <div class="login-ecg-wrap">
+      <svg class="login-ecg-svg" viewBox="0 0 400 36" preserveAspectRatio="none">
+        <!-- repeating ECG pattern twice for seamless scroll -->
+        <polyline fill="none" stroke="#0CCAAA" stroke-width="2" opacity="0.7"
+          points="0,18 30,18 38,18 42,2 46,32 50,18 60,18 90,18 98,18 102,2 106,32 110,18 120,18 150,18 158,18 162,2 166,32 170,18 180,18 200,18 200,18 230,18 238,18 242,2 246,32 250,18 260,18 290,18 298,18 302,2 306,32 310,18 320,18 350,18 358,18 362,2 366,32 370,18 380,18 400,18"/>
+      </svg>
+    </div>
+  </div>
+
+  <!-- Login Cards -->
+  <div class="login-cards">
+
+    <!-- ── Patient Login ── -->
+    <div class="login-card patient-card" onclick="doLogin(event,'patient')" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')doLogin(event,'patient')">
+      <div class="login-role-icon">❤️</div>
+      <div class="login-role-name">Patient Login</div>
+    </div>
+
+    <!-- ── Caregiver Login ── -->
+    <div class="login-card caregiver-card" onclick="doLogin(event,'caregiver')" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')doLogin(event,'caregiver')">
+      <div class="login-role-icon">🩺</div>
+      <div class="login-role-name">Caregiver Login</div>
+    </div>
+
+  </div>
+
+  <div class="login-disclaimer">
+    ⚠️ PROTOTYPE SYSTEM — Simulated & replayed healthcare monitoring data only.
+    Not a medical device or diagnostic tool. All alerts are prototype alerts only.
+    Track 3 — Affordable Health Tech.
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════
+     APP ROOT (hidden until login)
+══════════════════════════════════════════════════════════════ -->
+<div id="appRoot">
+
+  <!-- Disclaimer strip -->
   <div class="disclaimer-strip" role="banner">
     <div>
-      <strong>PROTOTYPE SYSTEM:</strong>
-      <span>Simulated & replayed healthcare monitoring data only. Not a medical device or diagnostic tool. Prototype alerts only.</span>
+      <strong>PROTOTYPE:</strong>
+      <span>Simulated monitoring data only. Not a medical device.</span>
     </div>
     <div class="disclaimer-badges">
-      <span class="badge-pill" id="wsStatusBadge">● Connecting...</span>
+      <span id="wsStatusBadge" class="badge-pill">● Connecting...</span>
       <span class="badge-pill">Track 3: Affordable Health Tech</span>
     </div>
   </div>
 
-  <!-- Global Siren Emergency Alert Banner -->
+  <!-- Global Siren Banner -->
   <div id="sirenBanner" class="siren-alert-banner" role="alert">
     <div class="siren-content">
       <span class="siren-icon">🚨</span>
       <div>
-        <strong style="font-size: 1.05rem;">CRITICAL EMERGENCY / SOS DETECTED</strong>
-        <div id="sirenText" style="font-size: 0.9rem; opacity: 0.95;">Attention required!</div>
+        <strong style="font-size:1.02rem;">CRITICAL EMERGENCY / SOS DETECTED</strong>
+        <div id="sirenText" style="font-size:0.86rem;opacity:0.92;">Attention required!</div>
       </div>
     </div>
-    <div style="display: flex; gap: 8px;">
-      <button class="btn-primary" style="background: white; color: var(--crit-solid); font-weight:700;" onclick="switchView('caregiver')">Review in Caregiver View</button>
+    <div style="display:flex;gap:8px;">
+      <button class="btn-primary" style="background:white;color:#DC2626;font-weight:700;" onclick="switchView('caregiver')">Review Alert</button>
       <button class="btn-secondary" onclick="hideSiren()">Mute Siren</button>
     </div>
   </div>
 
-  <!-- Main App Header & Navigation -->
+  <!-- App Header -->
   <header class="app-header">
-    <div class="brand-group" onclick="switchView('showcase')">
+    <div class="brand-group">
       <div class="logo-icon">♥</div>
       <div>
-        <div class="brand-name">CareBeat SmartCare</div>
+        <div class="brand-name">CareBeat</div>
         <div class="brand-tag">Affordable Continuous Health Monitoring</div>
       </div>
     </div>
 
-    <!-- Navigation Bar -->
-    <nav class="main-nav">
-      <button class="nav-tab active" data-view="showcase">🌟 Portal Select</button>
-      <button class="nav-tab" data-view="caregiver">🩺 Caregiver Dashboard</button>
-      <button class="nav-tab" data-view="patient">🚨 Patient Dashboard</button>
-      <button class="nav-tab" data-view="family">👨‍👩‍👦 Family Portal</button>
-      <button class="nav-tab" data-view="metrics">⚙️ Judge Metrics</button>
-      <button class="nav-tab" data-view="simulator">🎛️ Simulator & Dataset</button>
-    </nav>
-
-    <div class="header-actions">
-      <div class="role-selector-wrap">
-        <label for="roleSelector">Role:</label>
-        <select id="roleSelector" class="role-select">
-          <option value="caregiver">Caregiver: Priya Nair</option>
-          <option value="patient">Patient: Demo Patient A</option>
-          <option value="family">Family: Rahul (Son)</option>
-          <option value="admin">Admin / Reviewer</option>
-        </select>
-      </div>
-
+    <div class="header-right">
+      <span id="wsStatusDot" class="ws-status-dot"></span>
       <button id="audioToggleBtn" class="audio-toggle-btn">🔊 Audio: ON</button>
-      <button class="btn-emergency-top" onclick="triggerAnomaly('emergency')">⚠️ Test Emergency</button>
+      <div class="user-pill" id="userPill">
+        <div class="user-pill-avatar" id="userPillAvatar">P</div>
+        <span id="userPillName">Patient</span>
+      </div>
+      <button class="btn-logout" onclick="doLogout()">Sign Out</button>
     </div>
   </header>
 
-  <!-- Main View Container -->
-  <main class="app-container">
+  <!-- Main App -->
+  <main class="app-container" style="display:flex;flex-direction:column;">
 
-    <!-- VIEW 1: Portal Select & Showcase Hero -->
-    <section id="view-showcase" class="view-section active">
-      
-      <!-- Dual Portal Selection Cards -->
-      <div class="portal-hero-container">
-        <!-- Card 1: Caregiver Dashboard -->
-        <div class="portal-entry-card caregiver-theme" onclick="switchView('caregiver')">
-          <div>
-            <div class="portal-badge">🩺 Clinical Care Console</div>
-            <h2 class="portal-title">Caregiver Dashboard</h2>
-            <p class="portal-desc">
-              Multi-patient telemetry grid, live vital sparklines, priority alert triage, threshold sandbox editor, daily care tasks, and shift handover notes.
-            </p>
-          </div>
-          <button class="portal-btn">
-            Open Caregiver Dashboard <span>→</span>
-          </button>
-        </div>
-
-        <!-- Card 2: Patient Dashboard -->
-        <div class="portal-entry-card patient-theme" onclick="switchView('patient')">
-          <div>
-            <div class="portal-badge">🚨 Senior-Centric Screen</div>
-            <h2 class="portal-title">Patient Dashboard</h2>
-            <p class="portal-desc">
-              High-contrast accessible display, giant one-touch Emergency SOS Panic Button, daily "I'm OK" check-in, calm vital indicators, and medication schedule.
-            </p>
-          </div>
-          <button class="portal-btn">
-            Open Patient Dashboard <span>→</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Live ECG Waveform Simulation & Demo Script -->
-      <div class="hero-trace-container">
-        <div class="hero-trace-card">
-          <div class="hero-trace-header">
-            <div>
-              <strong style="color: #5FD0D8; font-size:1.1rem;">Live Telemetry ECG Simulation</strong>
-              <div style="font-size: 0.8rem; color: #9DB8BE;">Demo Patient A • Heart Patient Condition Profile</div>
-            </div>
-            <div id="heroBpmValue" style="font-size: 1.5rem; font-weight: 800; color: #FFFFFF;">74 BPM</div>
-          </div>
-
-          <div class="trace-canvas-wrap">
-            <canvas id="heroTraceCanvas"></canvas>
-          </div>
-
-          <div class="trace-explanation-box">
-            <div id="heroExplanationText">Live vital telemetry within configured physiological thresholds (74 BPM).</div>
-          </div>
-
-          <div style="margin-top: 14px; display: flex; justify-content: space-between; align-items: center;">
-            <button id="heroTestBreachBtn" class="btn-sm" style="background:#0F766E;color:white;border:none;padding:8px 14px;">Trigger Tachycardia Anomaly</button>
-            <button id="heroClaimBtn" class="btn-sm btn-claim" style="display: none;">Claim Alert (60s Lock)</button>
-          </div>
-        </div>
-
-        <!-- 3-Minute Judge Demo Guide -->
-        <div class="panel-card" style="border-left: 4px solid var(--brand); margin-bottom:0;">
-          <h4>⏱️ 3-Minute Live Demo Script</h4>
-          <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">
-            <div style="background:var(--surface-2);padding:10px 14px;border-radius:var(--radius-sm);">
-              <strong>0:00 — Normal Baseline:</strong>
-              <div style="font-size:0.82rem;color:var(--text-muted);margin-top:2px;">Patient cards update every second via WebSockets. All vitals green.</div>
-            </div>
-            <div style="background:var(--surface-2);padding:10px 14px;border-radius:var(--radius-sm);">
-              <strong>0:30 — Threshold Breach:</strong>
-              <div style="font-size:0.82rem;color:var(--text-muted);margin-top:2px;">Inject tachycardia anomaly. False-alarm filter requires 5 consecutive seconds.</div>
-            </div>
-            <div style="background:var(--surface-2);padding:10px 14px;border-radius:var(--radius-sm);">
-              <strong>1:00 — Acknowledge & Notes:</strong>
-              <div style="font-size:0.82rem;color:var(--text-muted);margin-top:2px;">Caregiver claims lock, clicks Acknowledge. Siren mutes, audit log records action.</div>
-            </div>
-            <div style="background:var(--surface-2);padding:10px 14px;border-radius:var(--radius-sm);">
-              <strong>1:30 — Patient SOS & Escalation:</strong>
-              <div style="font-size:0.82rem;color:var(--text-muted);margin-top:2px;">Switch to Patient Dashboard, press SOS. Auto-escalation activates after 120s timeout.</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- VIEW 2: Caregiver Dashboard (Clinical-Telemetry UI) -->
-    <section id="view-caregiver" class="view-section">
-      <div class="section-header">
-        <div>
-          <h2 class="section-title">🩺 Caregiver Clinical Dashboard</h2>
-          <div style="font-size:0.85rem;color:var(--text-muted);">Real-Time Patient Telemetry & Shift Care Management</div>
-        </div>
-        <div style="display: flex; gap: 10px;">
-          <button class="btn-sm" style="background:var(--brand);color:white;border:none;" onclick="triggerAnomaly('tachycardia')">💓 + Tachycardia</button>
-          <button class="btn-sm" style="background:#F59E0B;color:white;border:none;" onclick="triggerAnomaly('fever')">🌡️ + Fever</button>
-          <button class="btn-sm" style="background:#0284C7;color:white;border:none;" onclick="triggerAnomaly('low_spo2')">🫁 + Low SpO₂</button>
-          <button class="btn-sm" onclick="switchView('simulator')">🎛️ Simulator</button>
-        </div>
-      </div>
-
-      <!-- 4 Demo Patient Cards Grid -->
-      <div id="patientCardsGrid" class="patient-cards-grid"></div>
-
-      <!-- Selected Patient Detail Grid -->
-      <div class="dashboard-detail-grid">
-        <!-- Left: Live Vitals Chart & AI Layer -->
-        <div>
-          <div class="panel-card">
-            <h4 id="selectedPatientTitle">Live Clinical Telemetry Trend (Last 60 Readings)</h4>
-            <div class="chart-wrap">
-              <canvas id="patientVitalsChart"></canvas>
-            </div>
-          </div>
-
-          <!-- AI Summary Panel (Dual Engine: Gemini / Local Fallback) -->
-          <div class="ai-summary-card">
-            <div class="ai-header">
-              <div style="display: flex; align-items: center; gap: 8px;">
-                <span style="font-size: 1.25rem;">✨</span>
-                <strong style="color: var(--ink);">AI 24-Hour Clinical Narrative Briefing</strong>
-                <span id="aiSourceBadge" class="ai-badge">Gemini / Heuristic Engine</span>
-              </div>
-              <button class="btn-sm btn-primary" onclick="triggerAISummary()">Generate AI Summary</button>
-            </div>
-            <div id="aiSummaryContent" class="ai-text">
-              Click "Generate AI Summary" to synthesize 24 hours of telemetry, trend fluctuations, and medication adherence.
-            </div>
-            <div class="ai-disclaimer">
-              Disclaimers: Based on configured monitoring adherence only. Does not diagnose disease or replace physician assessment.
-            </div>
-          </div>
-
-          <!-- Threshold Sandbox Preview -->
-          <div class="panel-card">
-            <h4>🎛️ Threshold Configuration & Sandbox Preview</h4>
-            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 14px;">
-              <div>
-                <label style="font-size:0.75rem;color:var(--text-muted);font-weight:600;">HR Warning (BPM)</label>
-                <input id="thHrWarn" type="number" class="role-select" style="width:100%;margin-top:4px;" value="110">
-              </div>
-              <div>
-                <label style="font-size:0.75rem;color:var(--text-muted);font-weight:600;">HR Critical (BPM)</label>
-                <input id="thHrCrit" type="number" class="role-select" style="width:100%;margin-top:4px;" value="130">
-              </div>
-              <div>
-                <label style="font-size:0.75rem;color:var(--text-muted);font-weight:600;">Temp Crit (°C)</label>
-                <input id="thTempCrit" type="number" step="0.1" class="role-select" style="width:100%;margin-top:4px;" value="39.0">
-              </div>
-              <div>
-                <label style="font-size:0.75rem;color:var(--text-muted);font-weight:600;">SpO₂ Crit (%)</label>
-                <input id="thSpo2Crit" type="number" class="role-select" style="width:100%;margin-top:4px;" value="90">
-              </div>
-            </div>
-            <div id="sandboxPreviewResult" style="font-size:0.85rem;color:var(--brand);margin-bottom:12px;font-weight:600;">
-              Adjust limits and click "Preview in Sandbox" to simulate alert counts against past telemetry.
-            </div>
-            <div style="display: flex; gap: 10px;">
-              <button class="btn-sm" onclick="previewThresholdSandbox()">Preview in Sandbox</button>
-              <button class="btn-sm btn-ack" onclick="saveThresholdConfig()">Save as New Version</button>
-            </div>
-          </div>
-
-          <!-- Shift Handover Notes -->
-          <div class="panel-card">
-            <h4>📋 Shift Handover Notes</h4>
-            <div id="handoverNotesHistory" style="margin-bottom:14px;font-size:0.88rem;color:var(--text);line-height:1.5;"></div>
-            <div style="background:var(--surface-2);padding:14px;border-radius:var(--radius-sm);">
-              <strong style="font-size:0.85rem;display:block;margin-bottom:6px;">Submit Handover Note for Next Shift:</strong>
-              <textarea id="handoverNoteInput" rows="2" style="width:100%;padding:8px;border-radius:var(--radius-sm);border:1px solid var(--border-strong);font-family:inherit;font-size:0.85rem;" placeholder="Note patient condition, completed care tasks, or unresolved concerns..."></textarea>
-              <button class="btn-sm btn-primary" style="margin-top:8px;" onclick="submitHandoverNote()">Submit Handover Note</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Right: Alerts Drawer, Care Tasks, Medicines, Daily Tips -->
-        <div>
-          <!-- Live Alerts Queue -->
-          <div class="panel-card">
-            <h4>
-              <span>Active Alert Queue</span>
-              <span style="font-size: 0.75rem; color: var(--text-muted); font-weight:normal;">Deterministic Rules Engine</span>
-            </h4>
-            <div id="alertsListContainer" class="alerts-list"></div>
-          </div>
-
-          <!-- Daily Care Tasks Checklist -->
-          <div class="panel-card">
-            <h4>Daily Care Tasks Checklist</h4>
-            <div id="careTasksList"></div>
-          </div>
-
-          <!-- Medication Schedule -->
-          <div class="panel-card">
-            <h4>
-              <span>Medication Schedule</span>
-              <button class="btn-sm" onclick="fastForwardMedicine()" title="Test fast-forwarding next medicine reminder">Fast-Forward Due</button>
-            </h4>
-            <div id="medicinesList"></div>
-          </div>
-
-          <!-- Daily Care Wellness Suggestions -->
-          <div class="panel-card">
-            <h4>Contextual Wellness Suggestions</h4>
-            <div id="dailyTipsList"></div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- VIEW 3: Patient Dashboard / Screen (Elderly-Centric UI) -->
+    <!-- ══ VIEW: Patient Dashboard ══ -->
     <section id="view-patient" class="view-section">
       <div class="patient-dashboard-wrap">
-        
-        <!-- Patient Screen Top Bar & Profile Switcher -->
+
+        <!-- Top bar -->
         <div class="patient-top-bar">
           <div class="patient-status-indicator">
-            <div class="status-beacon"></div>
+            <div class="status-beacon" id="patientBeacon"></div>
             <div>
-              <div style="font-size:1.2rem;font-weight:800;color:var(--ink);" id="patientScreenName">Demo Patient A</div>
-              <div style="font-size:0.85rem;color:var(--text-muted);" id="patientScreenCondition">Heart Patient Profile • Age 72</div>
+              <div style="font-size:1.15rem;font-weight:800;color:var(--ink);" id="patientScreenName">Patient</div>
+              <div style="font-size:0.8rem;color:var(--text-muted);" id="patientScreenCondition">Monitoring active</div>
             </div>
           </div>
-
           <div style="display:flex;align-items:center;gap:10px;">
-            <label style="font-size:0.82rem;font-weight:600;color:var(--text-muted);">Switch Patient:</label>
+            <label style="font-size:0.78rem;font-weight:600;color:var(--text-muted);">Switch:</label>
             <select id="patientViewSelector" class="role-select" onchange="onPatientViewSelect(this.value)">
-              <option value="p1">Demo Patient A (Heart Patient)</option>
-              <option value="p2">Demo Patient B (Hypertension)</option>
-              <option value="p3">Demo Patient C (Diabetic)</option>
-              <option value="p4">Demo Patient D (Healthy Elderly)</option>
+              <option value="p1">Patient A (Heart)</option>
+              <option value="p2">Patient B (Hypertension)</option>
+              <option value="p3">Patient C (Diabetic)</option>
+              <option value="p4">Patient D (Elderly)</option>
             </select>
           </div>
         </div>
 
-        <!-- Friendly Status Banner -->
-        <div style="background:var(--normal-bg);border:1px solid #A7F3D0;padding:12px 20px;border-radius:var(--radius-md);margin-bottom:24px;display:flex;align-items:center;justify-content:space-between;">
+        <!-- Status banner -->
+        <div id="patientStatusBanner" class="patient-status-banner">
           <div style="display:flex;align-items:center;gap:10px;">
-            <span style="font-size:1.3rem;">🛡️</span>
+            <span style="font-size:1.5rem;">🛡️</span>
             <div>
-              <strong style="color:var(--normal-fg);font-size:0.95rem;">Monitoring Status: All Vitals Monitored & Normal</strong>
-              <div style="font-size:0.8rem;color:#047857;">Your vitals are being checked every second. Your caregiver is actively connected.</div>
+              <div style="font-weight:700;color:var(--ok-fg);">All Vitals Normal</div>
+              <div style="font-size:0.78rem;color:var(--ok-fg);opacity:0.8;">Your vitals are checked every second. Your caregiver is connected.</div>
             </div>
           </div>
-          <span style="font-size:0.8rem;background:white;color:var(--normal-fg);font-weight:700;padding:4px 10px;border-radius:var(--radius-full);">Live Protected</span>
+          <span style="font-size:0.72rem;font-weight:700;background:white;color:var(--ok-fg);padding:4px 12px;border-radius:var(--r-full);">● LIVE</span>
         </div>
 
-        <!-- Big Emergency SOS & Wellness Check-In Section -->
-        <div class="patient-sos-container">
-          <h2 style="font-size: 1.6rem; margin-bottom: 4px; color:var(--ink);">Emergency Assistance & Daily Check-In</h2>
-          <p style="color: var(--text-muted); font-size:0.92rem;">
-            Press the Emergency SOS button if you need urgent caregiver or family help.
-          </p>
+        <!-- Big vitals row -->
+        <div class="big-vitals-row">
+          <div class="big-vital-card hr">
+            <div class="big-vital-icon">💓</div>
+            <span class="big-vital-label">Heart Rate</span>
+            <div class="big-vital-number" id="sosBigHr">--</div>
+            <span class="big-vital-unit">BPM</span>
+            <div class="big-vital-status ok" id="hrStatus">Normal</div>
+          </div>
+          <div class="big-vital-card spo2">
+            <div class="big-vital-icon">🫁</div>
+            <span class="big-vital-label">Oxygen (SpO₂)</span>
+            <div class="big-vital-number" id="sosBigSpo2">--</div>
+            <span class="big-vital-unit">%</span>
+            <div class="big-vital-status ok" id="spo2Status">Optimal</div>
+          </div>
+          <div class="big-vital-card temp">
+            <div class="big-vital-icon">🌡️</div>
+            <span class="big-vital-label">Temperature</span>
+            <div class="big-vital-number" id="sosBigTemp">--</div>
+            <span class="big-vital-unit">°C</span>
+            <div class="big-vital-status ok" id="tempStatus">Stable</div>
+          </div>
+        </div>
 
-          <!-- Big SOS Button with Radar Waves -->
+        <!-- SOS Section -->
+        <div class="patient-sos-container">
+          <h2>🆘 Emergency Help & Daily Check-In</h2>
+          <p>Press the SOS button if you need urgent caregiver or family assistance.</p>
+
           <div class="big-sos-btn-wrap">
             <button id="patientSosHoldBtn" class="sos-hold-btn" aria-label="Hold 3 seconds for Emergency SOS">
               <span>SOS</span>
@@ -335,50 +192,30 @@
             </button>
           </div>
 
-          <!-- "I'm OK" Check-in Button -->
           <button class="btn-checkin-big" onclick="recordCheckIn()">
-            <span>✓ I'm OK Check-In</span>
+            ✅ I'm OK — Check In
           </button>
-
-          <!-- Large High-Contrast Vitals Numerals -->
-          <div class="big-vitals-display">
-            <div class="vital-box" style="padding:18px;background:var(--surface-2);border-radius:var(--radius-md);">
-              <span class="vital-label" style="font-size:0.8rem;font-weight:700;">Heart Rate</span>
-              <div class="vital-value" style="font-size:2.6rem;color:var(--brand);margin:4px 0;" id="sosBigHr">75</div>
-              <span class="vital-unit" style="font-size:0.85rem;font-weight:600;">BPM (Normal)</span>
-            </div>
-            <div class="vital-box" style="padding:18px;background:var(--surface-2);border-radius:var(--radius-md);">
-              <span class="vital-label" style="font-size:0.8rem;font-weight:700;">Temperature</span>
-              <div class="vital-value" style="font-size:2.6rem;color:#0284C7;margin:4px 0;" id="sosBigTemp">36.6</div>
-              <span class="vital-unit" style="font-size:0.85rem;font-weight:600;">°C (Stable)</span>
-            </div>
-            <div class="vital-box" style="padding:18px;background:var(--surface-2);border-radius:var(--radius-md);">
-              <span class="vital-label" style="font-size:0.8rem;font-weight:700;">Oxygen (SpO₂)</span>
-              <div class="vital-value" style="font-size:2.6rem;color:#10B981;margin:4px 0;" id="sosBigSpo2">98</div>
-              <span class="vital-unit" style="font-size:0.85rem;font-weight:600;">% (Optimal)</span>
-            </div>
-          </div>
         </div>
 
-        <!-- Patient Widgets Grid: Medications & Caregiver -->
+        <!-- Widgets: Medications + Caregiver -->
         <div class="patient-widgets-grid">
-          <!-- Medication Schedule Card -->
           <div class="panel-card" style="margin-bottom:0;">
-            <h4>💊 Today's Medication Reminder</h4>
-            <div id="patientMedsList"></div>
+            <h4>💊 Today's Medications</h4>
+            <div id="patientMedsList">
+              <div style="color:var(--text-muted);font-size:0.85rem;">Loading medications...</div>
+            </div>
           </div>
 
-          <!-- On-Duty Caregiver Card -->
           <div class="panel-card" style="margin-bottom:0;">
-            <h4>🩺 Your Assigned Caregiver</h4>
+            <h4>🩺 Your Caregiver</h4>
             <div class="caregiver-contact-card">
               <div class="caregiver-avatar">P</div>
               <div>
-                <strong style="font-size:1.05rem;color:var(--ink);">Priya Nair</strong>
-                <div style="font-size:0.82rem;color:var(--brand);font-weight:600;">✓ Verified Caregiver • Morning Shift</div>
-                <div style="font-size:0.78rem;color:var(--text-muted);margin-top:2px;">Contact: +91 98XXXXXX66</div>
+                <strong style="font-size:1rem;color:var(--ink);">Priya Nair</strong>
+                <div style="font-size:0.78rem;color:var(--brand);font-weight:600;margin-top:2px;">✓ Verified • Morning Shift</div>
+                <div style="font-size:0.74rem;color:var(--text-muted);margin-top:2px;">+91 98XXXXXX66</div>
                 <div style="margin-top:10px;">
-                  <a href="tel:+919844455566" class="btn-sm btn-ack" style="text-decoration:none;display:inline-flex;align-items:center;gap:4px;">📞 Call Caregiver Now</a>
+                  <a href="tel:+919844455566" class="btn-sm btn-ack" style="text-decoration:none;display:inline-flex;align-items:center;gap:4px;">📞 Call Now</a>
                 </div>
               </div>
             </div>
@@ -388,173 +225,289 @@
       </div>
     </section>
 
-    <!-- VIEW 4: Family Member Portal (Read-Only) -->
-    <section id="view-family" class="view-section">
-      <div class="section-header">
+
+    <!-- ══ VIEW: Caregiver Dashboard ══ -->
+    <section id="view-caregiver" class="view-section">
+
+      <!-- Caregiver header bar -->
+      <div class="caregiver-header-bar">
         <div>
-          <h2 class="section-title">👨‍👩‍👦 Family Member Portal (Read-Only)</h2>
-          <div style="font-size:0.85rem;color:var(--text-muted);">Remote Patient Visibility, Caregiver Contact & Verified SMS Inbox</div>
+          <h2>🩺 Caregiver Clinical Dashboard</h2>
+          <div class="sub">Real-Time Patient Telemetry & Care Management</div>
+        </div>
+        <div class="anomaly-btns">
+          <button class="btn-sm" style="background:#DC2626;color:white;border:none;" onclick="triggerAnomaly('tachycardia')">💓 Tachycardia</button>
+          <button class="btn-sm" style="background:#F59E0B;color:white;border:none;" onclick="triggerAnomaly('fever')">🌡️ Fever</button>
+          <button class="btn-sm" style="background:#6366F1;color:white;border:none;" onclick="triggerAnomaly('low_spo2')">🫁 Low SpO₂</button>
+          <button class="btn-sm" style="background:#0C1B2E;color:white;border:none;" onclick="triggerAnomaly('emergency')">🚨 Emergency</button>
         </div>
       </div>
 
-      <div class="family-view-grid">
+      <!-- Two-column layout -->
+      <div class="caregiver-layout">
+
+        <!-- LEFT COLUMN: Patient cards + chart + AI + threshold -->
         <div>
+          <!-- Patient cards grid -->
+          <div id="patientCardsGrid" class="patient-cards-grid"></div>
+
+          <!-- Live vitals chart -->
           <div class="panel-card">
-            <h4>Patient Daily Status: <span id="familyPatientName">Demo Patient A</span></h4>
-            <div style="margin: 14px 0; font-size: 0.95rem;">
-              Monitoring Compliance Health Score: <strong id="familyPatientScore" style="color:var(--brand);font-size:1.4rem;">95/100</strong>
-            </div>
-            <p style="font-size: 0.88rem; color: var(--text-muted);">
-              Assigned Caregiver: <strong>Priya Nair</strong> (Verified) • Contact: <strong>+91 98XXXXXX66</strong>
-            </p>
-            <div style="margin-top: 16px; display: flex; gap: 10px;">
-              <a href="tel:+919844455566" class="btn-sm btn-ack" style="text-decoration:none;display:inline-flex;align-items:center;">📞 Call Caregiver</a>
-              <a href="https://wa.me/919844455566?text=Hi%20Priya,%20checking%20in%20on%20my%20patient%27s%20status" target="_blank" class="btn-sm" style="text-decoration:none;background:#25D366;color:white;border:none;">💬 WhatsApp</a>
+            <h4 id="selectedPatientTitle">Live Vitals Trend (Last 40 Readings)</h4>
+            <div class="chart-wrap">
+              <canvas id="patientVitalsChart"></canvas>
             </div>
           </div>
 
+          <!-- AI Summary -->
+          <div class="ai-summary-card">
+            <div class="ai-header">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span style="font-size:1.1rem;">✨</span>
+                <strong style="color:var(--ink);font-size:0.95rem;">24-Hour AI Health Summary</strong>
+                <span id="aiSourceBadge" class="ai-badge">Gemini / Heuristics</span>
+              </div>
+              <button class="btn-sm btn-primary" onclick="triggerAISummary()">Generate Summary</button>
+            </div>
+            <div id="aiSummaryContent" class="ai-text">Click "Generate Summary" to get a 24-hour plain-language health briefing for the selected patient.</div>
+            <div class="ai-disclaimer">Does not diagnose disease or replace physician assessment.</div>
+          </div>
+
+          <!-- Threshold Sandbox -->
           <div class="panel-card">
-            <h4>Latest Shift Handover Note</h4>
-            <p style="font-size: 0.92rem; line-height: 1.6; color: var(--text);" id="familyHandoverText">
-              <em>"Patient alert and cheerful, slept 7 hours peacefully. Morning medication administered, assisted 15m garden walk, light oatmeal breakfast. Slight stiffness in left knee noted during morning walk, offered warm compression."</em>
-            </p>
-            <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 8px;">Submitted by Priya Nair (Morning Shift)</div>
+            <h4>🎛️ Alert Threshold Configuration</h4>
+            <div class="threshold-grid">
+              <div>
+                <label>HR Warning (BPM)</label>
+                <input id="thHrWarn" type="number" value="110">
+              </div>
+              <div>
+                <label>HR Critical (BPM)</label>
+                <input id="thHrCrit" type="number" value="130">
+              </div>
+              <div>
+                <label>Temp Critical (°C)</label>
+                <input id="thTempCrit" type="number" step="0.1" value="39.0">
+              </div>
+              <div>
+                <label>SpO₂ Critical (%)</label>
+                <input id="thSpo2Crit" type="number" value="90">
+              </div>
+            </div>
+            <div id="sandboxPreviewResult" style="font-size:0.82rem;color:var(--brand);margin-bottom:10px;font-weight:600;">Adjust limits and click Preview to simulate alert counts.</div>
+            <div style="display:flex;gap:8px;">
+              <button class="btn-sm" onclick="previewThresholdSandbox()">Preview in Sandbox</button>
+              <button class="btn-sm btn-ack" onclick="saveThresholdConfig()">Save New Version</button>
+            </div>
+          </div>
+
+          <!-- Shift Handover Notes -->
+          <div class="panel-card">
+            <h4>📋 Shift Handover Notes</h4>
+            <div id="handoverNotesHistory" style="margin-bottom:12px;"></div>
+            <div style="background:var(--surface-2);padding:14px;border-radius:var(--r-sm);">
+              <strong style="font-size:0.82rem;display:block;margin-bottom:6px;">Submit Handover Note for Next Shift:</strong>
+              <textarea id="handoverNoteInput" rows="2" style="width:100%;padding:8px;border-radius:var(--r-sm);border:1px solid var(--border-strong);font-family:inherit;font-size:0.83rem;outline:none;" placeholder="Note patient condition, completed tasks, or concerns..."></textarea>
+              <button class="btn-sm btn-primary" style="margin-top:8px;" onclick="submitHandoverNote()">Submit Note</button>
+            </div>
           </div>
         </div>
 
-        <!-- Phone Mockup for Simulated SMS Inbox -->
+        <!-- RIGHT COLUMN: Alerts + Tasks + Meds + Tips -->
         <div>
-          <h4 style="text-align: center; margin-bottom: 12px;">📱 Simulated Family Phone (SMS Gateway)</h4>
-          <div class="phone-mockup">
-            <div class="phone-screen">
-              <div class="phone-header">SMS Notifications (Family Alerts)</div>
-              <div id="familyPhoneScreen"></div>
+
+          <!-- Alert Queue -->
+          <div class="panel-card">
+            <h4>
+              <span>⚠️ Active Alerts</span>
+              <span style="font-size:0.7rem;color:var(--text-muted);font-weight:normal;">Deterministic Rules Engine</span>
+            </h4>
+            <div id="alertsListContainer" class="alerts-list"></div>
+          </div>
+
+          <!-- Daily Care Tasks -->
+          <div class="panel-card">
+            <h4>✅ Daily Care Tasks</h4>
+            <div id="careTasksList"></div>
+          </div>
+
+          <!-- Medication Schedule -->
+          <div class="panel-card">
+            <h4>
+              <span>💊 Medication Schedule</span>
+              <button class="btn-sm" onclick="fastForwardMedicine()" title="Test fast-forward medicine">Fast-Fwd Due</button>
+            </h4>
+            <div id="medicinesList"></div>
+          </div>
+
+          <!-- Wellness Tips -->
+          <div class="panel-card">
+            <h4>💡 Wellness Suggestions</h4>
+            <div id="dailyTipsList"></div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ══ ACCORDION: Family Notifications ══ -->
+      <div class="accordion-section" id="acc-family">
+        <div class="accordion-header" onclick="toggleAccordion('acc-family')">
+          <span>📱 Family Notifications & Status</span>
+          <span class="accordion-chevron">▼</span>
+        </div>
+        <div class="accordion-body">
+          <div class="family-view-grid" style="padding-top:4px;">
+            <div>
+              <div class="panel-card" style="margin-bottom:16px;">
+                <h4>Patient Daily Status: <span id="familyPatientName">Patient A</span></h4>
+                <div style="margin:12px 0;font-size:0.92rem;">
+                  Health Score: <strong id="familyPatientScore" style="color:var(--brand);font-size:1.3rem;">95/100</strong>
+                </div>
+                <p style="font-size:0.84rem;color:var(--text-muted);">
+                  Caregiver: <strong>Priya Nair</strong> (Verified) • +91 98XXXXXX66
+                </p>
+                <div style="margin-top:14px;display:flex;gap:8px;">
+                  <a href="tel:+919844455566" class="btn-sm btn-ack" style="text-decoration:none;">📞 Call Caregiver</a>
+                  <a href="https://wa.me/919844455566?text=Checking+in+on+patient+status" target="_blank" class="btn-sm" style="text-decoration:none;background:#25D366;color:white;border:none;">💬 WhatsApp</a>
+                </div>
+              </div>
+              <div class="panel-card" style="margin-bottom:0;">
+                <h4>Latest Shift Handover Note</h4>
+                <p style="font-size:0.9rem;line-height:1.6;color:var(--text-muted);" id="familyHandoverText">
+                  <em>"Patient alert and cheerful, slept 7 hours peacefully. Morning medication administered, assisted 15m garden walk."</em>
+                </p>
+                <div style="font-size:0.74rem;color:var(--text-muted);margin-top:6px;">By Priya Nair (Morning Shift)</div>
+              </div>
+            </div>
+            <div>
+              <h4 style="text-align:center;margin-bottom:12px;font-size:0.95rem;">📱 Simulated SMS Inbox</h4>
+              <div class="phone-mockup">
+                <div class="phone-screen">
+                  <div class="phone-header">SMS Notifications</div>
+                  <div id="familyPhoneScreen"></div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </section>
 
-    <!-- VIEW 5: Judge Evaluation & Admin Metrics -->
-    <section id="view-metrics" class="view-section">
-      <div class="section-header">
-        <div>
-          <h2 class="section-title">⚙️ Judge Evaluation & Performance Metrics</h2>
-          <div style="font-size:0.85rem;color:var(--text-muted);">Deterministic Performance, Suppression Efficiency & Audit Logging</div>
+      <!-- ══ ACCORDION: System Metrics ══ -->
+      <div class="accordion-section" id="acc-metrics">
+        <div class="accordion-header" onclick="toggleAccordion('acc-metrics')">
+          <span>📊 System Performance Metrics & Audit Trail</span>
+          <span class="accordion-chevron">▼</span>
         </div>
-        <div>
-          <a href="/reports/export" class="btn-sm btn-ack" style="text-decoration:none;">📥 Export Telemetry CSV</a>
-        </div>
-      </div>
-
-      <!-- Key Metrics Stat Cards -->
-      <div class="metrics-stat-grid">
-        <div class="metric-box">
-          <h5>Avg Alert Latency</h5>
-          <div class="metric-value" id="metricLatency">-- ms</div>
-        </div>
-        <div class="metric-box">
-          <h5>Critical Alerts</h5>
-          <div class="metric-value" id="metricCritCount">0</div>
-        </div>
-        <div class="metric-box">
-          <h5>Suppressed False Alarms</h5>
-          <div class="metric-value" id="metricSuppressed">0</div>
-        </div>
-        <div class="metric-box">
-          <h5>Sensor Errors Quarantined</h5>
-          <div class="metric-value" id="metricQuarantined">0</div>
-        </div>
-        <div class="metric-box">
-          <h5>Medicine Adherence</h5>
-          <div class="metric-value" id="metricMedAdherence">100%</div>
-        </div>
-        <div class="metric-box">
-          <h5>Active Ingestion Stream</h5>
-          <div class="metric-value" id="metricSource" style="font-size:1.3rem;">simulator</div>
-        </div>
-      </div>
-
-      <!-- Caregiver Verification Queue (MOCK) -->
-      <div class="panel-card">
-        <h4>Caregiver Verification Queue (Admin Document Review)</h4>
-        <div id="caregiverQueueList"></div>
-      </div>
-
-      <!-- Append-Only Audit Trail -->
-      <div class="panel-card">
-        <h4>Append-Only Audit Trail Log</h4>
-        <div class="table-responsive">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Timestamp</th>
-                <th>Event Type</th>
-                <th>Actor</th>
-                <th>Patient</th>
-                <th>Details</th>
-              </tr>
-            </thead>
-            <tbody id="auditTrailTableBody"></tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-
-    <!-- VIEW 6: Simulator & Kaggle CSV Replayer -->
-    <section id="view-simulator" class="view-section">
-      <div class="section-header">
-        <div>
-          <h2 class="section-title">🎛️ Simulation & Kaggle CSV Dataset Control Panel</h2>
-          <div style="font-size:0.85rem;color:var(--text-muted);">Dynamic Gaussian Drift Simulator vs. Replay of 60,000 Kaggle Records</div>
-        </div>
-      </div>
-
-      <div class="sim-controls-grid">
-        <div class="panel-card">
-          <h4>Active Data Source Selection</h4>
-          <p style="font-size:0.9rem;color:var(--text-muted);margin-bottom:14px;">
-            Current Active Ingestion: <strong id="currentSourceLabel" style="color:var(--brand);">simulator</strong>
-          </p>
-          <div style="display:flex;gap:12px;margin-bottom:20px;">
-            <button class="btn-primary" onclick="switchDataSource('simulator')">Dynamic Math Simulator (Default)</button>
-            <button class="btn-secondary" style="background:#0F766E;color:white;" onclick="switchDataSource('dataset-replay')">Replay Kaggle CSV (60,000 Records)</button>
+        <div class="accordion-body">
+          <div style="display:flex;justify-content:flex-end;margin-bottom:12px;padding-top:4px;">
+            <a href="/reports/export" class="btn-sm btn-ack" style="text-decoration:none;">📥 Export CSV</a>
           </div>
-          <div style="font-size:0.85rem;color:var(--text-muted);line-height:1.6;">
-            • <strong>Dynamic Math Simulator:</strong> Generates continuous readings using sinusoidal equations and Gaussian noise.<br>
-            • <strong>Dataset Replay:</strong> Replays `Synthetic_patient-HealthCare-Monitoring_dataset.csv` row by row. Automatically maps Fall Detection rows to emergency SOS alerts!
+          <div class="metrics-stat-grid">
+            <div class="metric-box">
+              <h5>Avg Alert Latency</h5>
+              <div class="metric-value" id="metricLatency">-- ms</div>
+            </div>
+            <div class="metric-box">
+              <h5>Critical Alerts</h5>
+              <div class="metric-value" id="metricCritCount">0</div>
+            </div>
+            <div class="metric-box">
+              <h5>Suppressed False Alarms</h5>
+              <div class="metric-value" id="metricSuppressed">0</div>
+            </div>
+            <div class="metric-box">
+              <h5>Errors Quarantined</h5>
+              <div class="metric-value" id="metricQuarantined">0</div>
+            </div>
+            <div class="metric-box">
+              <h5>Medicine Adherence</h5>
+              <div class="metric-value" id="metricMedAdherence">100%</div>
+            </div>
+            <div class="metric-box">
+              <h5>Active Stream</h5>
+              <div class="metric-value" id="metricSource" style="font-size:1.1rem;">simulator</div>
+            </div>
           </div>
-        </div>
-
-        <div class="panel-card">
-          <h4>Instant Anomaly Triggers (Demo Scenarios)</h4>
-          <div class="sim-trigger-buttons">
-            <button class="btn-sim-action" onclick="triggerAnomaly('tachycardia')">
-              <span>💓 Tachycardia Spike (HR > 130 BPM)</span>
-              <span class="btn-sm">30s Duration</span>
-            </button>
-            <button class="btn-sim-action" onclick="triggerAnomaly('fever')">
-              <span>🌡️ High Fever Spike (Temp > 38.8°C)</span>
-              <span class="btn-sm">60s Duration</span>
-            </button>
-            <button class="btn-sim-action" onclick="triggerAnomaly('low_spo2')">
-              <span>🫁 Hypoxia Oxygen Drop (SpO₂ &lt; 88%)</span>
-              <span class="btn-sm">30s Duration</span>
-            </button>
-            <button class="btn-sim-action" style="border-color:var(--crit-solid);" onclick="triggerAnomaly('emergency')">
-              <span style="color:var(--crit-solid);font-weight:700;">🚨 Full Emergency (All Vitals Critical)</span>
-              <span class="btn-sm btn-ack" style="background:var(--crit-solid);">Immediate Alert</span>
-            </button>
+          <!-- Caregiver verification queue -->
+          <div class="panel-card">
+            <h4>👤 Caregiver Verification Queue</h4>
+            <div id="caregiverQueueList"></div>
+          </div>
+          <!-- Audit trail -->
+          <div class="panel-card" style="margin-bottom:0;">
+            <h4>🔐 Audit Trail Log</h4>
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Time</th><th>Event</th><th>Actor</th><th>Patient</th><th>Details</th>
+                  </tr>
+                </thead>
+                <tbody id="auditTrailTableBody"></tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
+
+      <!-- ══ ACCORDION: Simulator Controls ══ -->
+      <div class="accordion-section" id="acc-simulator">
+        <div class="accordion-header" onclick="toggleAccordion('acc-simulator')">
+          <span>🎛️ Simulator & Dataset Controls</span>
+          <span class="accordion-chevron">▼</span>
+        </div>
+        <div class="accordion-body">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;padding-top:4px;" class="sim-controls-inner">
+
+            <div class="panel-card" style="margin-bottom:0;">
+              <h4>Active Data Source</h4>
+              <p style="font-size:0.86rem;color:var(--text-muted);margin-bottom:12px;">
+                Current: <strong id="currentSourceLabel" style="color:var(--brand);">simulator</strong>
+              </p>
+              <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
+                <button class="btn-primary" onclick="switchDataSource('simulator')">Math Simulator</button>
+                <button class="btn-secondary" onclick="switchDataSource('dataset-replay')">Kaggle CSV Replay</button>
+              </div>
+              <div style="font-size:0.8rem;color:var(--text-muted);line-height:1.6;">
+                • <strong>Math Simulator:</strong> Continuous sinusoidal readings with Gaussian noise.<br>
+                • <strong>Dataset Replay:</strong> Replays 60,000 rows from CSV. Fall Detection → SOS alerts.
+              </div>
+            </div>
+
+            <div class="panel-card" style="margin-bottom:0;">
+              <h4>Instant Anomaly Triggers</h4>
+              <div class="sim-trigger-buttons">
+                <button class="btn-sim-action" onclick="triggerAnomaly('tachycardia')">
+                  <span>💓 Tachycardia Spike (HR &gt; 130 BPM)</span>
+                  <span class="btn-sm">30s</span>
+                </button>
+                <button class="btn-sim-action" onclick="triggerAnomaly('fever')">
+                  <span>🌡️ High Fever (Temp &gt; 38.8°C)</span>
+                  <span class="btn-sm">60s</span>
+                </button>
+                <button class="btn-sim-action" onclick="triggerAnomaly('low_spo2')">
+                  <span>🫁 Hypoxia (SpO₂ &lt; 88%)</span>
+                  <span class="btn-sm">30s</span>
+                </button>
+                <button class="btn-sim-action" style="border-color:var(--crit);" onclick="triggerAnomaly('emergency')">
+                  <span style="color:var(--crit);font-weight:700;">🚨 Full Emergency (All Critical)</span>
+                  <span class="btn-sm btn-ack" style="background:var(--crit);">Now</span>
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
     </section>
 
   </main>
+</div>
 
-  <!-- Toast Notification Container -->
-  <div id="toastContainer" aria-live="polite"></div>
+<!-- Toast Container -->
+<div id="toastContainer" aria-live="polite"></div>
 
-  <script src="/static/js/app.js"></script>
+<script src="/static/js/app.js"></script>
 </body>
 </html>
