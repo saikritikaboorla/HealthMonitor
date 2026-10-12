@@ -1,6 +1,6 @@
 # SmartCare — Affordable Smart Health Monitoring and Emergency Alert System
 
-> **Prototype notice:** CareBeat is a monitoring and caregiver-coordination prototype.
+> **Prototype notice:** SmartCare is a monitoring and caregiver-coordination prototype.
 > It does not diagnose disease, recommend treatment, or replace professional medical assessment.
 > All demonstration data is dynamically simulated or replayed from a public dataset.
 > All alerts are prototype alerts only.
