@@ -1,0 +1,30 @@
+{
+  "TELEGRAM_BOT_TOKEN": "",
+  "GEMINI_API_KEY": "",
+  "GEMINI_MODEL": "gemini-1.5-flash",
+  "false_alarm_seconds": 5,
+  "offline_alert_seconds": 120,
+  "escalation_timeout_seconds": 120,
+  "missed_checkin_seconds": 3600,
+  "simulator_interval_seconds": 1,
+  "column_mapping": {
+    "heart_rate": "Heart Rate (bpm)",
+    "spo2": "SpO2 Level (%)",
+    "temperature": "Body Temperature (°C)",
+    "systolic_bp": "Systolic Blood Pressure (mmHg)",
+    "diastolic_bp": "Diastolic Blood Pressure (mmHg)",
+    "fall_detection": "Fall Detection",
+    "data_accuracy": "Data Accuracy (%)",
+    "disease_label": "Predicted Disease",
+    "heart_rate_alert": "Heart Rate Alert",
+    "spo2_alert": "SpO2 Level Alert",
+    "bp_alert": "Blood Pressure Alert",
+    "temp_alert": "Temperature Alert"
+  },
+  "patients": {
+    "p1": { "telegram_chat_id": "" },
+    "p2": { "telegram_chat_id": "" },
+    "p3": { "telegram_chat_id": "" },
+    "p4": { "telegram_chat_id": "" }
+  }
+}

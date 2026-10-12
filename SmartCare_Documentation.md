@@ -1,36 +1,87 @@
 # SmartCare: Affordable Smart Health Monitoring and Emergency Alert System
 
-**Document type:** Project and technical documentation
-**Audience:** Clients, reviewers, judges, and developers building the prototype
-**Status:** Hackathon prototype specification (Track 3 — Affordable Health Tech)
+**Document type:** Project and technical documentation  
+**Audience:** Clients, reviewers, judges, and developers building the prototype  
+**Status:** Hackathon prototype specification (Track 3 — Affordable Health Tech)  
 
+> [!IMPORTANT]
 > **Important notice:** SmartCare is a monitoring and caregiver-coordination prototype. It does not diagnose disease, recommend treatment, or replace professional medical assessment. All demonstration data is dynamically simulated or optionally replayed from a public dataset. All alerts are prototype alerts only.
 
 ---
 
 ## Table of Contents
 
-1. Overview
-2. Recommended Technology Stack
-3. System Architecture
-4. How the Application Works
-5. Patient Registration and Family Contact
-6. Caregiver Module
-7. Core Features
-8. Advanced Features
-9. Datasets and Data Strategy
-10. Database Design
-11. API Design
-12. Notification and Alert Routing
-13. Medicine Reminders
-14. Dashboard Design
-15. Privacy and Security
-16. Evaluation Page
-17. Testing and Evaluation
-18. Implementation Roadmap
-19. Scope and Limitations
-20. Deliverables
-21. Differentiators
+1. [Overview](#1-overview)
+   - 1.1 [Problem](#11-problem)
+   - 1.2 [Solution](#12-solution)
+   - 1.3 [Objectives](#13-objectives)
+2. [Recommended Technology Stack](#2-recommended-technology-stack)
+3. [System Architecture](#3-system-architecture)
+   - 3.1 [Data Input Layer](#31-data-input-layer)
+   - 3.2 [Backend and API Layer](#32-backend-and-api-layer)
+   - 3.3 [Alert and Rules Engine](#33-alert-and-rules-engine)
+   - 3.4 [Caregiver Module](#34-caregiver-module)
+   - 3.5 [Notification Router](#35-notification-router)
+   - 3.6 [Database Layer](#36-database-layer)
+   - 3.7 [Frontend & Dual-Dashboard Architecture](#37-frontend--dual-dashboard-architecture)
+4. [How the Application Works](#4-how-the-application-works)
+   - 4.1 [End-to-End Workflow](#41-end-to-end-workflow)
+   - 4.2 [Alert States](#42-alert-states)
+   - 4.3 [Alert Routing by Severity](#43-alert-routing-by-severity)
+5. [Patient Registration and Family Contact](#5-patient-registration-and-family-contact)
+   - 5.1 [Registration Form](#51-registration-form)
+   - 5.2 [Family Contact Rules](#52-family-contact-rules)
+   - 5.3 [Condition-Based Threshold Profiles](#53-condition-based-threshold-profiles)
+6. [Caregiver Module](#6-caregiver-module)
+   - 6.1 [Caregiver Profile](#61-caregiver-profile)
+   - 6.2 [Verification (MOCK)](#62-verification-mock)
+   - 6.3 [Fee Negotiation (MOCK)](#63-fee-negotiation-mock)
+   - 6.4 [Caregiver Assignment](#64-caregiver-assignment)
+   - 6.5 [Caregiver Page (BUILD fully)](#65-caregiver-page-build-fully)
+7. [Core Features](#7-core-features)
+   - 7.1 [Multi-Source Data Collection](#71-multi-source-data-collection)
+   - 7.2 [Alert Engine](#72-alert-engine)
+   - 7.3 [SOS Emergency Pipeline](#73-sos-emergency-pipeline)
+   - 7.4 [Data Quality and Monitoring Continuity](#74-data-quality-and-monitoring-continuity)
+   - 7.5 [Audit Trail](#75-audit-trail)
+8. [Advanced Features & AI Intelligence Layer](#8-advanced-features--ai-intelligence-layer)
+   - 8.1 [Health Score (0–100)](#81-health-score-0100)
+   - 8.2 [Daily Care Tips](#82-daily-care-tips)
+   - 8.3 [AI Layer & Deterministic Fallback Engine (Dual-Engine Architecture)](#83-ai-layer--deterministic-fallback-engine-dual-engine-architecture)
+   - 8.4 [Threshold Sandbox Preview](#84-threshold-sandbox-preview)
+9. [Datasets and Data Strategy](#9-datasets-and-data-strategy)
+   - 9.1 [Role of Data](#91-role-of-data)
+   - 9.2 [Primary Data Source: Dynamic Simulator](#92-primary-data-source-dynamic-simulator)
+   - 9.3 [Secondary Data Source: Synthetic Patient HealthCare Monitoring Dataset](#93-secondary-data-source-synthetic-patient-healthcare-monitoring-dataset)
+   - 9.4 [Dataset Replayer Logic](#94-dataset-replayer-logic)
+   - 9.5 [Source Switching](#95-source-switching)
+   - 9.6 [Data Handling Rules](#96-data-handling-rules)
+10. [Database Design](#10-database-design)
+11. [API Design](#11-api-design)
+    - 11.1 [REST Endpoints](#111-rest-endpoints)
+    - 11.2 [WebSocket Channel](#112-websocket-channel)
+12. [Notification and Alert Routing](#12-notification-and-alert-routing)
+    - 12.1 [Routing Table](#121-routing-table)
+    - 12.2 [Channels](#122-channels)
+    - 12.3 [Notification Record](#123-notification-record)
+13. [Medicine Reminders](#13-medicine-reminders)
+    - 13.1 [Reminder Workflow](#131-reminder-workflow)
+    - 13.2 [Medicine Log](#132-medicine-log)
+    - 13.3 [Demo Helper](#133-demo-helper)
+14. [Dashboard Design: Two Specialized Dashboards](#14-dashboard-design-two-specialized-dashboards)
+    - 14.1 [Persistent Disclaimer](#141-persistent-disclaimer)
+    - 14.2 [Caregiver Dashboard (Clinical-Telemetry UI)](#142-caregiver-dashboard-clinical-telemetry-ui)
+    - 14.3 [Patient Dashboard / Screen (Elderly-Centric UI)](#143-patient-dashboard--screen-elderly-centric-ui)
+    - 14.4 [Family View (read-only)](#144-family-view-read-only)
+    - 14.5 [Admin View](#145-admin-view)
+15. [Privacy and Security](#15-privacy-and-security)
+16. [Evaluation Page](#16-evaluation-page)
+17. [Testing and Evaluation](#17-testing-and-evaluation)
+18. [Implementation Roadmap](#18-implementation-roadmap)
+19. [Scope and Limitations](#19-scope-and-limitations)
+20. [Deliverables](#20-deliverables)
+21. [Differentiators](#21-differentiators)
+22. [Additional Features (Future Roadmap)](#22-additional-features-future-roadmap)
 
 ---
 
@@ -45,79 +96,86 @@ Elderly people and individuals who need regular health monitoring may not receiv
 SmartCare is an affordable, software-first platform that connects five things in one workflow:
 
 1. **Vital-sign monitoring** — heart rate, body temperature, SpO2, and blood pressure (dynamically simulated by default, optionally replayed from a Kaggle dataset, or manually entered).
-2. **Alert generation** — configurable threshold profiles per patient condition, trend checks, and SOS.
-3. **Caregiver coordination** — a structured caregiver module with assignment, shifts, care tasks, and handover notes.
-4. **Family connectivity** — mandatory family contact on every patient, with direct alerts, masked numbers, and a family read-only view.
-5. **Emergency escalation** — Telegram + simulated SMS to caregiver and family simultaneously on Critical alerts, with automatic escalation if unacknowledged.
+2. **Alert generation & false-alarm suppression** — configurable threshold profiles per patient condition, trend checks, false-alarm persistence filtering, and SOS emergency pipeline.
+3. **Dual login dashboards** — distinct user dashboards tailored for either the **Patient** (large SOS button, daily check-in, calm simplified vitals, and medication checklists) or the **Caregiver** (multi-patient telemetry, live sparklines, alert queue with Acknowledge/Resolve notes, care-task checklists, and shift handover notes).
+4. **Caregiver coordination & family connectivity** — a structured caregiver module with assignment, shifts, care tasks, handover notes, mandatory family contact registration, direct alerts on Critical/SOS, masked numbers, and a family read-only view.
+5. **Emergency escalation & AI insights** — Telegram + simulated SMS to caregiver and family simultaneously on Critical alerts, with automatic escalation to secondary contacts if unacknowledged, plus a dual-engine AI summarizer backed by a local deterministic heuristic fallback.
 
-The prototype runs entirely on a standard laptop with no sensors. Its architecture is designed so that an ESP32 device with real sensors can be added later without redesigning the system.
+The prototype runs entirely on a standard laptop with zero required hardware. Its architecture is designed so that an ESP32 device with real sensors can be added later without redesigning the backend or ingestion pipelines.
 
 ### 1.3 Objectives
 
-1. Build an affordable monitoring prototype that works fully in software.
-2. Display HR (BPM), body temperature (°C), SpO2 (%), and blood pressure (mmHg) with live updates.
-3. Support per-patient condition-based threshold profiles, editable live.
-4. Detect threshold breaches, trend spikes, stale data, and device disconnections.
-5. Provide a caregiver dashboard for monitoring assigned patients with care task checklists.
-6. Support mandatory family contact registration with phone verification (simulated).
-7. Route alerts to the right people: caregiver for Warning, caregiver + family for Critical/SOS.
-8. Demonstrate Telegram notifications, acknowledgment timeouts, and escalation to a second family contact.
-9. Support medicine reminders with Taken/Missed tracking.
-10. Show a Health Score (0–100) per patient with formula transparency.
-11. Provide a Caregiver Module with profile, verification (mocked), fee negotiation (mocked), and assignment.
-12. Keep a full audit trail of readings, alerts, notifications, contact changes, and caregiver actions.
-13. Show an Evaluation/Metrics page for judges.
-14. Clearly communicate that the system is not a medical diagnostic tool.
+1. Build an affordable monitoring prototype that works fully in software at ₹0 cost.
+2. Display HR (BPM), body temperature (°C), SpO2 (%), and blood pressure (mmHg) with 1-second live updates.
+3. Provide two distinct login dashboards tailored to Patient and Caregiver needs.
+4. Support per-patient condition-based threshold profiles, editable live with client-side sandbox previews.
+5. Detect threshold breaches, trend spikes, stale data, and device disconnections.
+6. Provide a caregiver dashboard for monitoring assigned patients with care-task checklists and shift handover notes.
+7. Support mandatory family contact registration with phone verification (simulated).
+8. Route alerts to the right people: caregiver for Warning, caregiver + family for Critical/SOS.
+9. Demonstrate Telegram notifications, acknowledgment timeouts, and escalation to a second family contact.
+10. Support medicine reminders with Taken/Missed tracking and auditory voice prompts.
+11. Show a Health Score (0–100) per patient with complete formula transparency.
+12. Integrate an AI Layer (Google Gemini) for 24-hour plain-language summaries and care tips with strict non-diagnostic guardrails.
+13. Integrate an offline Deterministic Fallback Layer ensuring zero crashes and zero latency when AI is unavailable.
+14. Provide a Caregiver Module with profile, verification (mocked), fee negotiation (mocked), and assignment.
+15. Keep a full append-only audit trail of readings, alerts, notifications, contact changes, and caregiver actions.
+16. Show an Evaluation/Metrics page for hackathon judges (`eval_test.py`).
+17. Clearly communicate that the system is a monitoring prototype and not a medical diagnostic tool.
 
 ---
 
 ## 2. Recommended Technology Stack
 
-| Layer | Technology | Purpose |
+| Layer | Technology | Purpose & Justification |
 |---|---|---|
-| Backend framework | Python 3.11+ with FastAPI | REST APIs, WebSocket server, alert engine, business logic |
-| Database | SQLite | All data: readings, alerts, patients, caregivers, audit logs |
-| Frontend | Plain HTML/CSS/JS (no build step) | Single-page dashboard, patient screen, caregiver page, family view |
-| Charts | Chart.js via CDN | Live trend charts, history graphs |
-| Live updates | FastAPI WebSocket (native browser WebSocket) | Real-time readings, alerts, presence |
-| Simulation and replay | Python (built-in csv module, random) | Dataset replay and synthetic fallback generator |
-| Background tasks | FastAPI BackgroundTasks + APScheduler | Escalation timers, medicine reminders, offline detection |
-| Notifications | Telegram Bot API (real if token set, simulated otherwise) | Critical alerts, medicine reminders, family contact alerts |
-| SMS (simulated) | Console log + "Family phone" UI panel | Simulated SMS for family contacts; optional Twilio adapter |
-| Voice alerts | Browser SpeechSynthesis API | Dashboard voice alert on Critical/SOS |
-| Optional AI summary | Google Gemini API (if key set, rule-based fallback otherwise) | Plain-language 24h summary |
-| Config | config.json / environment variables | All secrets and configurable values, no secrets in code |
+| **Backend framework** | Python 3.11+ with FastAPI | High-performance asynchronous REST API and native WebSocket server for sub-second telemetry ingestion and dispatch. Zero-cost. |
+| **Database** | SQLite (WAL mode) | Relational database with ACID compliance, zero setup, indexed queries, and append-only audit trail logging. |
+| **Frontend** | Plain HTML5 / CSS3 / Vanilla JS (ES6+) | Clean, responsive single-page application. No build step (no npm/Node.js required), runs in any modern browser. |
+| **Data Visualization** | Chart.js via CDN | Lightweight hardware-accelerated canvas charts for real-time sparklines, waveform trends, and threshold limit overlays. |
+| **Real-time communication** | FastAPI WebSocket (`/ws`) | Persistent bi-directional channel streaming vitals every second and synchronizing alert states across dashboards. |
+| **AI Intelligence Layer** | Google Gemini API (`gemini-1.5-flash`) | Generates non-diagnostic 24-hour plain-language summaries, contextual caregiver advice, and explainable alert notes. |
+| **Deterministic Fallback Layer** | CareBeat Clinical Heuristics Engine | Local, rule-based algorithmic engine in `ai_service.py` providing 100% offline fallback summaries when external AI is unavailable. |
+| **Simulation and replay** | Python (`random`, `math`, `csv`) | Built-in Gaussian drift generator (`simulator.py`) and Kaggle dataset replayer (60,000 records) with instant anomaly triggers. |
+| **IoT & Hardware Ingestion** | HTTP REST / JSON (`POST /measurements`) | Device-independent schema compatible with ESP32 Wi-Fi microcontrollers, dynamic simulators, and dataset replayers. |
+| **Background tasks** | FastAPI BackgroundTasks + APScheduler | Escalation timers, medicine reminder schedules, missed check-in alerts, and offline device heartbeat detection. |
+| **Notifications** | Telegram Bot API + Simulated SMS | Real Telegram Bot notifications if token is set; in-dashboard simulated SMS panel with optional Twilio adapter. |
+| **Auditory & Voice alerts** | Browser SpeechSynthesis API | Loud browser siren tone and spoken voice alerts on Critical alerts, SOS events, and scheduled medication reminders. |
+| **Configuration** | `config.json` / environment variables | All secrets, tokens, and configurable threshold defaults isolated from source code. |
 
-**Why this stack:** zero-cost, no build step, runs on a laptop, easy to demo. The Python backend handles all logic; the browser frontend is a single HTML file served as a static asset.
+**Why this stack:** zero-cost, no build step, runs on any laptop, exceptionally easy to demo and evaluate. The Python backend handles all logic; the browser frontend is served as static assets.
 
 ---
 
 ## 3. System Architecture
 
 ```
-[Dataset Replayer]  [Synthetic Simulator]  [Manual Form]  [SOS Button]  [I'm OK Check-in]
-        \                   |                   |               |               /
-         +-------------- Data Input Layer (patient_id, heart_rate, temperature, spo2, timestamp, source) ----------+
-                                                |
-                                    FastAPI Backend (REST + WebSocket)
-                                                |
-         +-------------+-------------+----------+-----------+-------------+------------------+
-         |             |             |          |           |             |                  |
-   Alert &       Threshold      Trend &     Medicine    Caregiver     Notification      SQLite
-   Rules Engine  Profiles       False-alarm  Scheduler   Module        Router            Database
-         |             |             |          |           |             |                  |
-         +-------------+-------------+----------+-----------+-------------+------------------+
-                                                |
-                          React-free Single-Page Dashboard (WebSocket + REST)
-                                                |
-              +------------------+--------------+----------------+------------------+
-              |                  |              |                |                  |
-       Caregiver View      Family View    Patient Screen    Admin View       Metrics/Eval Page
+[Dynamic Simulator]  [Dataset Replayer]  [Manual Form]  [Patient SOS]  [Future ESP32]
+         \                  |                  |               |              /
+          +-------------- Data Input Layer: POST /measurements ---------------+
+                                               |
+                                     FastAPI Backend Core
+                                               |
+        +-------------------+------------------+-------------------+
+        |                   |                  |                   |
+   Sanity & Range     False-Alarm        Threshold Rules     AI Summarizer +
+   Quarantine Filter  Window (5s)        & Escalation Engine Deterministic Fallback
+        |                   |                  |                   |
+        +-------------------+------------------+-------------------+
+                                               |
+                               WebSocket Broadcast (/ws)
+                                               |
+                   +---------------------------+---------------------------+
+                   |                                                       |
+        [Patient Dashboard]                                     [Caregiver Dashboard]
+        • Large SOS Panic Button                                • Multi-Patient Telemetry
+        • "I'm OK" Check-in                                     • Live Charts & Alerts
+        • Simple Vitals & Meds                                  • Tasks & Handover Notes
 ```
 
 ### 3.1 Data Input Layer
 
-Accepts data from four sources and normalizes everything to one JSON format:
+Accepts data from five sources and normalizes everything to one standard JSON format:
 
 ```json
 {
@@ -125,24 +183,27 @@ Accepts data from four sources and normalizes everything to one JSON format:
   "heart_rate": 84,
   "temperature": 36.7,
   "spo2": 97,
+  "systolic_bp": 120,
+  "diastolic_bp": 80,
   "timestamp": "2026-10-12T12:35:00",
   "source": "simulator"
 }
 ```
 
 Sources:
-- **Dynamic simulator (default)** — generates realistic vital-sign readings every second for 4 demo patients using math-based noise and drift. Supports API-triggered anomalies for instant demo scenarios. Starts automatically on app launch.
-- **Dataset replayer (optional)** — reads the Kaggle CSV from `/data`, replays one row per second, loops when file ends. Switch to this source from the dashboard or simulator page.
-- **Manual entry form** — caregiver or family enters a value from a physical device.
-- **SOS / check-in** — patient-initiated events that bypass vital checks.
+- **Dynamic simulator (default):** generates realistic vital-sign readings every second for 4 demo patients using math-based noise and baseline drift. Supports API-triggered anomalies for instant demo scenarios. Starts automatically on app launch.
+- **Dataset replayer (optional):** reads the Kaggle CSV from repository root, replays one row per second, loops when file ends. Switch to this source from the dashboard or simulator page.
+- **Manual entry form:** caregiver or family enters a value from a physical device.
+- **SOS / check-in:** patient-initiated events that bypass vital checks.
+- **Hardware ESP32 node (future ready):** posts the exact same schema over Wi-Fi (`firmware/esp32_example.ino`).
 
 ### 3.2 Backend and API Layer
 
-FastAPI exposes REST endpoints for patients, caregivers, measurements, thresholds, alerts, medicines, notifications, and audit. WebSocket broadcasts live readings and alert state changes to all connected dashboards.
+FastAPI exposes REST endpoints for patients, caregivers, measurements, thresholds, alerts, medicines, notifications, AI summaries, and audit records. A unified WebSocket at `/ws` broadcasts live readings and alert state changes to all connected dashboards.
 
 ### 3.3 Alert and Rules Engine
 
-Validates each reading, checks condition-based threshold profiles, evaluates trend rules, applies false-alarm filtering (N consecutive seconds), and produces explainable alert events with routing decisions.
+Validates each reading, checks condition-based threshold profiles, evaluates trend rules, applies false-alarm filtering (N consecutive seconds), and produces explainable alert events with deterministic routing decisions.
 
 ### 3.4 Caregiver Module
 
@@ -150,15 +211,18 @@ Manages caregiver profiles, skill matching, shift assignment, verification statu
 
 ### 3.5 Notification Router
 
-Routes alerts to the correct recipients based on alert severity and patient configuration. Delivers via Telegram Bot API (real or simulated), simulated SMS (Family phone panel), and in-app. Records every attempt.
+Routes alerts to the correct recipients based on alert severity and patient configuration. Delivers via Telegram Bot API (real or simulated), simulated SMS (Family phone panel), and in-app siren banners. Records every attempt.
 
 ### 3.6 Database Layer
 
-SQLite with append-only audit and alert records. All tables listed in Section 10.
+SQLite with append-only audit, measurement, and alert records. All tables listed in Section 10.
 
-### 3.7 Frontend
+### 3.7 Frontend & Dual-Dashboard Architecture
 
-A single `static/index.html` served by FastAPI. Four views accessible via role login (name + role selector): Caregiver, Family, Patient, Admin. No framework, no build step.
+A single `static/index.html` served by FastAPI. Two primary specialized dashboards are available directly upon login/role selection:
+- **Patient Dashboard:** Tailored for elderly patients (high-contrast, giant buttons, SOS, "I'm OK", simple vitals, medication cards).
+- **Caregiver Dashboard:** Tailored for caregivers (telemetry cards, live charts, alert queue, threshold sandbox, care tasks, shift handovers).
+- Additional specialized views: **Family View** (read-only) and **Admin View** (verification and audit).
 
 ---
 
@@ -167,18 +231,19 @@ A single `static/index.html` served by FastAPI. Four views accessible via role l
 ### 4.1 End-to-End Workflow
 
 1. **Seed:** Run `python seed.py` to create 4 demo patients, 2 caregivers, 1 admin, family contacts, and medicines.
-2. **Start:** `uvicorn main:app` then open the browser.
-3. **Select role:** name + role selector (Patient / Caregiver / Family / Admin).
+2. **Start:** `uvicorn main:app` then open `http://localhost:8000` in the browser.
+3. **Select Dashboard / Role:** Choose either **Patient Dashboard** or **Caregiver Dashboard** (or Family / Admin).
 4. **Data arrives:** dynamic simulator sends readings every second per patient via WebSocket by default. Optionally switch to CSV dataset replay from the dashboard.
 5. **Validation:** impossible values (HR 0 or >250, Temp >45 or <30) are marked "sensor error" and quarantined.
 6. **False-alarm filter:** a value must stay beyond a threshold for N consecutive seconds (default 5) before an alert fires.
 7. **Alert fires:** explainable alert created, notification router decides recipients.
-8. **Notification:** Telegram + simulated SMS to caregiver (Warning) or caregiver + family (Critical/SOS). Siren banner + voice on dashboard.
+8. **Notification:** Telegram + simulated SMS to caregiver (Warning) or caregiver + family (Critical/SOS). Siren banner + voice alert on dashboard.
 9. **Acknowledgment:** caregiver presses Acknowledge, siren stops, timestamp recorded.
-10. **Escalation:** if unacknowledged within N seconds, second family contact notified, alert labelled "Escalated".
-11. **Resolution:** caregiver marks resolved, history preserved.
+10. **Escalation:** if unacknowledged within N seconds (default 120), second family contact notified, alert labelled "Escalated".
+11. **Resolution:** caregiver marks resolved with care notes, history preserved.
 12. **Medicine reminders:** fire at scheduled times; Taken/Missed tracked; family notified if missed >30 min.
-13. **Review:** Metrics page shows latency, alert counts, medicine adherence, uptime.
+13. **AI / Fallback summary:** Generates 24h summary via Gemini API, or instantly falls back to local heuristic rule engine if offline.
+14. **Review:** Metrics page shows latency, alert counts, medicine adherence, uptime.
 
 ### 4.2 Alert States
 
@@ -189,7 +254,7 @@ A single `static/index.html` served by FastAPI. Four views accessible via role l
 | **Critical** | A reading crosses the critical limit, or SOS pressed |
 | **Acknowledged** | A caregiver confirmed awareness; siren stopped |
 | **Escalated** | Timeout expired; second family contact notified |
-| **Resolved** | Caregiver recorded the event as addressed |
+| **Resolved** | Caregiver recorded the event as addressed with care notes |
 
 ### 4.3 Alert Routing by Severity
 
@@ -200,6 +265,7 @@ A single `static/index.html` served by FastAPI. Four views accessible via role l
 | Unacknowledged (timeout) | Second family contact; label changed to "Escalated" |
 | Device offline | Assigned caregiver AND family contact |
 | Missed medicine (>30 min) | Family contact |
+| Missed check-in | Assigned caregiver |
 
 ---
 
@@ -208,7 +274,6 @@ A single `static/index.html` served by FastAPI. Four views accessible via role l
 ### 5.1 Registration Form
 
 The patient registration form collects:
-
 - **Name and age**
 - **Condition tags:** high BP, heart patient, diabetic, none (selects a default threshold profile)
 - **Care-needs tags:** medicine help, mobility help, diet help, night monitoring
@@ -276,7 +341,6 @@ Each caregiver has:
 ### 6.5 Caregiver Page (BUILD fully)
 
 The caregiver's dashboard shows:
-
 - **Assigned patients list:** live HR, Temp, SpO2, status colour (green/yellow/red), and Health Score per patient.
 - **Alerts panel:** active alerts for assigned patients with Acknowledge button and a quick-note field.
 - **Care-task checklist per patient:** generated from care-needs tags:
@@ -314,7 +378,7 @@ Source label is shown on every reading: `simulator`, `dataset-replay`, `manual`,
 **Every alert includes a plain-language explanation:**
 > "Heart rate critical: latest reading is 135 BPM, above the configured critical limit of 130 BPM for this patient's heart patient profile."
 
-### 7.3 SOS
+### 7.3 SOS Emergency Pipeline
 
 Pressing the SOS button:
 1. Creates an immediate Critical alert, bypassing all threshold checks and false-alarm filters.
@@ -336,7 +400,7 @@ Persists: readings with source, threshold changes with version, alerts with expl
 
 ---
 
-## 8. Advanced Features
+## 8. Advanced Features & AI Intelligence Layer
 
 ### 8.1 Health Score (0–100)
 
@@ -356,7 +420,6 @@ If a specific vital is dragging the score down, that is shown explicitly (e.g., 
 ### 8.2 Daily Care Tips
 
 A "Daily care tips" card per patient generated from condition tags and current vitals:
-
 - High BP: low-salt meals, avoid caffeine, stay calm.
 - Diabetic: fewer sweets, regular meal times, monitor energy levels.
 - Fever (Temp >37.8): extra fluids, light food, rest.
@@ -364,14 +427,37 @@ A "Daily care tips" card per patient generated from condition tags and current v
 
 Rules: no calorie targets, no medicine or dosage advice. Every tips card carries: **"General wellness suggestions only, not medical or dietary advice."**
 
-### 8.3 Optional Gemini Plain-Language Summary
+### 8.3 AI Layer & Deterministic Fallback Engine (Dual-Engine Architecture)
 
-If `GEMINI_API_KEY` is set in config.json:
-- A "Summary" button calls the Gemini API with the last 24 hours of readings.
-- The prompt instructs: no diagnosis wording, 2–3 simple sentences, reference only configured limits.
+SmartCare provides a dual-engine architecture combining generative AI summaries with an autonomous local rule-based heuristic engine:
 
-If no key is set, a rule-based fallback generates a summary like:
-> "Heart rate averaged 78 BPM today and stayed within the configured range. Temperature was slightly elevated for 2 hours this morning. No Critical alerts were raised."
+```
+[24h Patient Telemetry, Alerts & Medication Logs]
+                       |
+                       v
+            Is GEMINI_API_KEY Available?
+                 /             \
+               YES              NO (or 429 / Network Error / Timeout > 5s)
+                |                                  |
+                v                                  v
+   [AI Layer: Google Gemini API]        [Deterministic Fallback Layer]
+   • gemini-1.5-flash model             • CareBeat Clinical Heuristics Engine
+   • 2–3 sentence plain summary         • Local statistical mean/min/max
+   • Contextual wellness tips           • Template-based daily summary
+   • Non-diagnostic guardrails          • 100% offline, 0ms external latency
+```
+
+#### The AI Layer (Google Gemini)
+- Implemented in `ai_service.py` via `httpx` async client calling the Gemini REST API.
+- Generates 2–3 sentence daily plain-language summaries of vitals trends and alert activity.
+- Generates contextual non-prescriptive caregiver advice based on patient conditions.
+- **Strict Medical Guardrails:** System prompts prohibit declaring medical diagnoses, disease predictions, drug prescriptions, or dosage changes. The AI must speak only in terms of observed readings and configured threshold compliance.
+
+#### The Deterministic Fallback Layer
+- If the Gemini API key is missing, network access is down, API rate limits are hit (HTTP 429), or an API call times out (>5 seconds), the system **automatically and instantly degrades to the internal Local Rule-Based Engine**.
+- Aggregates min, max, and average bounds for heart rate, temperature, and SpO2 directly from SQLite records.
+- Outputs structured plain-language summaries using deterministic templates (e.g., *"Heart rate averaged 75 BPM and remained comfortably within configured target limits. Oxygen saturation maintained strong levels averaging 97%."*).
+- **Safety Invariant:** **Life-critical alert decisions, threshold evaluations, false-alarm suppressions, siren activations, and emergency notifications NEVER depend on or pass through the AI layer.** Emergency alerting is 100% deterministic and hardcoded.
 
 ### 8.4 Threshold Sandbox Preview
 
@@ -440,7 +526,7 @@ Available as an optional source. The repository includes `Synthetic_patient-Heal
 | `Patient Number` | Integer | 1–60,000 | Used to assign rows to demo patients in blocks |
 | `Heart Rate (bpm)` | Integer | 50–139 | Mapped to `heart_rate` |
 | `SpO2 Level (%)` | Integer | 84–100 | Mapped to `spo2` |
-| `Systolic Blood Pressure (mmHg)` | Integer | 90–199 | Stored as additional vital; not in base JSON schema |
+| `Systolic Blood Pressure (mmHg)` | Integer | 90–199 | Stored as additional vital |
 | `Diastolic Blood Pressure (mmHg)` | Integer | 50–129 | Stored as additional vital |
 | `Body Temperature (°C)` | Float | 35.0–39.3 | Mapped to `temperature` |
 | `Fall Detection` | String | Yes / No | `Yes` triggers an immediate Critical alert (SOS pipeline) |
@@ -451,9 +537,7 @@ Available as an optional source. The repository includes `Synthetic_patient-Heal
 | `Blood Pressure Alert` | String | NORMAL / ABNORMAL | Ground-truth |
 | `Temperature Alert` | String | NORMAL / ABNORMAL | Ground-truth |
 
-#### Column Mapping (config.json)
-
-Because column names contain spaces and units, the replayer reads a configurable mapping from `config.json`:
+#### Column Mapping (`config.json`)
 
 ```json
 "column_mapping": {
@@ -502,7 +586,6 @@ The dashboard also exposes a **Source** toggle button. Switching source mid-sess
 - Label every reading with its source: `simulator`, `dataset-replay`, `manual`.
 - Never present replayed or simulated data as a patient's own historical baseline.
 - Use only `Predicted Disease` internally for condition-tag assignment; never expose it on the dashboard.
-- Store dataset name, version, URL, and retrieval date in `data/README.md`.
 - Map replayed rows to fictional demo patient profiles only.
 
 ---
@@ -553,7 +636,7 @@ All alert, notification, and audit records are append-only. Resolving an alert u
 
 | Endpoint | Purpose |
 |---|---|
-| `POST /measurements` | Submit a reading |
+| `POST /measurements` | Submit a reading (device-independent ingestion) |
 | `GET /patients/{id}/measurements` | Measurement history |
 | `GET /patients/{id}/status` | Current vitals and alert state |
 | `GET /thresholds/{patient_id}` | Retrieve threshold config |
@@ -561,7 +644,7 @@ All alert, notification, and audit records are append-only. Resolving an alert u
 | `GET /alerts` | List alerts (filtered by role) |
 | `POST /alerts/{id}/acknowledge` | Acknowledge alert |
 | `POST /alerts/{id}/note` | Add a quick note |
-| `POST /alerts/{id}/resolve` | Resolve alert |
+| `POST /alerts/{id}/resolve` | Resolve alert with care notes |
 | `POST /sos` | Trigger SOS for a patient |
 | `POST /checkin` | Record an "I'm OK" check-in |
 
@@ -591,17 +674,17 @@ All alert, notification, and audit records are append-only. Resolving an alert u
 | `POST /patients/{id}/care-log` | Add care log entry |
 | `POST /patients/{id}/handover` | Submit handover note |
 
-**Dashboard and Reports**
+**Dashboard, AI and Reports**
 
 | Endpoint | Purpose |
 |---|---|
 | `GET /patients/{id}/health-score` | Current Health Score with breakdown |
-| `GET /patients/{id}/summary` | Daily summary (rule-based or Gemini) |
-| `GET /patients/{id}/tips` | Daily care tips |
+| `GET /patients/{id}/summary` | 24h summary (Gemini AI with local heuristic fallback) |
+| `GET /patients/{id}/tips` | Daily care wellness tips |
 | `GET /notifications/history` | Notification audit (alert latency, channels) |
 | `GET /audit` | Audit records (admin only) |
 | `GET /metrics` | Evaluation metrics for judges |
-| `GET /reports/export` | CSV export |
+| `GET /reports/export` | CSV export of monitoring telemetry |
 
 **Simulation and Demo Helpers**
 
@@ -618,14 +701,11 @@ All alert, notification, and audit records are append-only. Resolving an alert u
 ### 11.2 WebSocket Channel
 
 A single WebSocket at `/ws` broadcasts:
-
-- New readings per patient.
-- Alert creation and state changes.
-- Medicine reminder fires.
+- New readings per patient (`vital_update`).
+- Alert creation and state changes (`alert_raised`, `alert_updated`).
+- Medicine reminder fires (`medicine_reminder`).
 - Device-offline and data-quality warnings.
 - Check-in status updates.
-
-On reconnect, the dashboard fetches current state from REST and resumes WebSocket.
 
 ---
 
@@ -645,7 +725,7 @@ On reconnect, the dashboard fetches current state from REST and resumes WebSocke
 
 ### 12.2 Channels
 
-- **Telegram Bot API:** real if `TELEGRAM_BOT_TOKEN` and patient's `telegram_chat_id` are set in config.json. Otherwise logs to console and shows a "Telegram (simulated)" toast on the dashboard.
+- **Telegram Bot API:** real if `TELEGRAM_BOT_TOKEN` and patient's `telegram_chat_id` are set in `config.json`. Otherwise logs to console and shows a "Telegram (simulated)" toast on the dashboard.
 - **Simulated SMS:** writes to the "Family phone" panel in the UI and to the console. Optional Twilio adapter enabled only if `TWILIO_*` credentials are set.
 - **In-app:** siren banner + browser SpeechSynthesis voice alert on Critical/SOS. Remains active until Acknowledged.
 - **Retry:** retry once on failure, then fall back to the other available channel.
@@ -675,38 +755,39 @@ A "Fast-forward time" button on the dashboard triggers the next medicine reminde
 
 ---
 
-## 14. Dashboard Design
+## 14. Dashboard Design: Two Specialized Dashboards
+
+SmartCare implements two primary login dashboards tailored specifically to the user's needs, plus dedicated views for Family and Admin:
 
 ### 14.1 Persistent Disclaimer
 
 Every screen shows a permanent top banner:
-> **"Prototype alerts only. Not a medical diagnosis or medical device."**
+> **"PROTOTYPE SYSTEM: Simulated & replayed healthcare monitoring data only. Not a medical device or diagnostic tool. No alert does not imply safety."**
 
-### 14.2 Caregiver Dashboard
+### 14.2 Caregiver Dashboard (Clinical-Telemetry UI)
 
-- Per-patient card: live HR, Temp, SpO2, status colour (green/yellow/red), Health Score badge with tooltip.
-- Live trend chart (Chart.js, last 60 readings).
-- Alerts list: severity, explanation, time, Acknowledge button, quick note field.
-- Care-task checklist: due tasks, overdue badges.
-- Medicine reminders: next scheduled medicine, Taken button.
-- Daily care tips card.
-- Source switch: Simulator (default) / Dataset Replay.
-- Simulate Emergency button.
-- Threshold settings panel (live edit, with sandbox preview).
-- History view.
+Tailored to nursing staff, home aides, and caregivers managing one or more patients:
+- **Multi-Patient Telemetry Cards:** Live HR, Temp, SpO2, status colour (green/yellow/red), condition tags, and Health Score per patient.
+- **Real-Time Sparklines & Charts:** Interactive Chart.js graph tracking the latest 60 readings with configured threshold boundary overlays.
+- **Actionable Alert Queue:** Active alerts with exact breach value, plain explanation, **Acknowledge** button (mutes siren banner), and **Resolve** action with care notes.
+- **Threshold Sandbox & Custom Profiles:** Live threshold editor with client-side sandbox validation that runs against stored reading history before saving.
+- **Care-Task Checklist:** Actionable daily care routines (vitals check, meds, meals, mobility walk) with due times and overdue badges.
+- **Shift Handover Notes & Care Logs:** Structured handover records (condition on arrival, tasks completed, concerns) visible to the incoming shift caregiver.
+- **Family Contact & Escalation Oversight:** Direct display of masked family phone numbers with one-click call/WhatsApp shortcuts and live escalation countdown timers.
 
-### 14.3 Patient Screen
+### 14.3 Patient Dashboard / Screen (Elderly-Centric UI)
 
-Large text and large buttons only:
-- Current status colour and text (Normal / Warning / Critical).
-- Large **"I'm OK"** check-in button.
-- Large **SOS** button (red).
-- "Take your medicine" card when a reminder is active with a **Taken** button.
-- Current HR, Temp, SpO2 in large font.
+Tailored specifically to seniors or individuals needing care with minimal cognitive load:
+- **Massive One-Touch SOS Button:** Prominently placed, high-contrast red panic button that fires an instantaneous Critical alert across all notification channels, bypassing threshold filters.
+- **One-Touch "I'm OK" Check-in:** Simple wellness check-in button that allows the patient to confirm daily wellbeing with a single click, resetting the missed check-in timer without typing.
+- **Calm, High-Contrast Vitals Display:** Giant-font vitals display with reassuring, non-diagnostic status chips (e.g., `Heart Rate: 74 BPM (Normal)`, `Temperature: 36.6°C (Stable)`), avoiding terrifying clinical jargon.
+- **Actionable Medication Cards:** High-visibility medication cards displaying due pills with a simple "Taken" button and browser voice prompt ("It is time to take your morning medication").
+- **Caregiver On-Duty Status:** Clear card displaying which caregiver is currently active on shift and a direct emergency call link.
+- **Auditory Announcements:** Browser SpeechSynthesis announces medication reminders and confirms SOS activations.
 
 ### 14.4 Family View (read-only)
 
-- Patient status and health score.
+- Patient status and Health Score.
 - Recent alerts (last 24 hours).
 - Missed medicines and missed tasks.
 - Caregiver's latest daily note and handover note.
@@ -718,7 +799,7 @@ Large text and large buttons only:
 - Caregiver verification queue (MOCK): Verify / Reject / set expiry.
 - Contact change audit log.
 - Fee negotiation statuses (MOCK).
-- Full notification history.
+- Full notification history and judge metrics.
 
 ---
 
@@ -750,7 +831,7 @@ A "Metrics" screen accessible from the admin view, for hackathon judges:
 | Dataset replay uptime (if active) | Rows replayed, loop count, current row |
 | Notification delivery | Attempted, succeeded, failed, retried, per channel |
 
-A short test script (`eval_test.py`) replays a fixed 5-minute segment of the dataset and prints these numbers to the console, so judges can verify the system independently.
+A test script (`eval_test.py`) replays a fixed 5-minute scenario and prints these numbers to the console, so judges can verify the system independently.
 
 ---
 
@@ -782,6 +863,7 @@ A short test script (`eval_test.py`) replays a fixed 5-minute segment of the dat
 | Admin verifies caregiver | Status changes to Verified |
 | Fee negotiation: Agreed | Assignment enabled |
 | Threshold sandbox preview | Alert count matches re-run on stored history |
+| Gemini API unavailable / offline | Seamless fallback to local heuristic engine summary |
 
 ---
 
@@ -790,7 +872,7 @@ A short test script (`eval_test.py`) replays a fixed 5-minute segment of the dat
 ### Stage 1: Backend, Simulator, Alert Engine, Basic Dashboard, Acknowledge
 - FastAPI app and SQLite schema (core tables).
 - Dynamic simulator (`simulator.py`) as the default data source — starts on app launch, generates readings every second per patient.
-- Dataset replayer (`replayer.py`) as an optional secondary source with configurable column mapping.
+- Dataset replayer as an optional secondary source with configurable column mapping.
 - Threshold evaluation and false-alarm filter.
 - Trend check rule.
 - WebSocket broadcast of readings and alerts.
@@ -808,16 +890,17 @@ A short test script (`eval_test.py`) replays a fixed 5-minute segment of the dat
 ### Stage 3: Registration, Family Contact, Roles, Medicine Reminders
 - Patient registration form with consent and family contact validation.
 - Phone verification (simulated) and masked display.
-- Role login (name + role selector).
+- Dual Dashboard login selector (Patient vs. Caregiver).
 - Family view (read-only).
 - Medicine schedule, reminder workflow, Taken/Missed tracking, Fast-forward helper.
 
-### Stage 4: Caregiver Module, Tips, Health Score, Metrics Page
+### Stage 4: Caregiver Module, Tips, Health Score, AI Layer & Fallback, Metrics Page
 - Caregiver profile, verification queue (MOCK), fee negotiation (MOCK).
 - Caregiver assignment with skill matching.
 - Caregiver page: assigned patients, care tasks, care log, handover notes.
 - Daily care tips (condition + vitals based).
 - Health Score calculation and tooltip.
+- AI layer (Gemini summary) with deterministic local heuristic fallback.
 - Threshold sandbox preview.
 - Evaluation/Metrics page.
 
@@ -839,7 +922,7 @@ A short test script (`eval_test.py`) replays a fixed 5-minute segment of the dat
 - Caregiver verification is a manual admin review — not connected to any police, government, or background-check database.
 - Fee negotiation is a status tracker only — no payment processing.
 - Phone verification is simulated — no real OTP or SMS gateway.
-- Gemini summary is optional — a rule-based fallback always runs if no API key is set.
+- Gemini summary is optional — a rule-based fallback always runs if no API key is set or on network failure.
 - Language support (Telugu/Hindi) is future scope — English only in the prototype.
 - Dataset rows are replayed for demo purposes only. They represent a different population and are not a patient's personal health history.
 - Threshold values are demonstration defaults, not universal medical limits.
@@ -852,17 +935,17 @@ A short test script (`eval_test.py`) replays a fixed 5-minute segment of the dat
 
 1. Working software-only CareBeat application.
 2. Dynamic simulator (`simulator.py`) — default data source, generates realistic readings every second per patient with API-triggered anomaly support.
-3. Dataset replayer (`replayer.py`) — optional secondary source with configurable column mapping via `config.json`.
+3. Dataset replayer — optional secondary source with configurable column mapping via `config.json`.
 4. `main.py` — FastAPI backend, WebSocket server, alert engine.
 5. `database.py` — SQLite schema and queries.
-6. `tips.py` — rule-based care tips generator.
-7. `static/index.html` — full single-page dashboard (caregiver, family, patient, admin views).
+6. `ai_service.py` — Gemini AI summarizer with deterministic local heuristic rule engine.
+7. `static/index.html` — full single-page dashboard with two specialized dashboards (Caregiver vs. Patient) and family/admin views.
 8. `seed.py` — creates 4 demo patients, 2 caregivers, 1 admin, family contacts, medicines.
 9. `eval_test.py` — 5-minute simulator run (fixed seed) with metrics printout.
-10. `config.json` — all configurable values (no secrets hardcoded).
+10. `config.json` / `config.example.json` — all configurable values (no secrets hardcoded).
 11. `requirements.txt`.
 12. `data/README.md` — dataset name, version, URL, license, column mapping documentation.
-13. `README.md` — setup guide, run commands, architecture diagram (ASCII), cost table, honest limits, 3-minute demo script, future scope.
+13. `README.md` — cleaner, shorter companion to this documentation with setup, architecture, demo script, and limits.
 14. Caregiver module (profile, verification MOCK, fee negotiation MOCK, assignment, caregiver page).
 15. Evaluation/Metrics page.
 
@@ -870,8 +953,9 @@ A short test script (`eval_test.py`) replays a fixed 5-minute segment of the dat
 
 ## 21. Differentiators
 
+- **Dual Specialized Dashboards:** Distinct tailored interfaces for Patient (elderly accessibility, giant SOS, check-in) and Caregiver (multi-patient telemetry, task checklists, handover notes).
 - **Family-first design:** family contact is mandatory; alerts go directly to family on Critical/SOS; family has a dedicated read-only view.
-- **Caregiver module:** skill matching, shift assignment, care task checklists, handover notes — not just a dashboard.
+- **Caregiver module:** skill matching, shift assignment, care task checklists, handover notes — not just a raw data display.
 - **Verification and trust layer (mocked):** caregiver verification workflow makes the prototype feel production-ready.
 - **Intelligent alert routing:** Warning → caregiver only; Critical/SOS → caregiver + family simultaneously; escalation → second family contact.
 - **Fall detection pipeline:** Fall Detection column in the dataset auto-triggers a Critical alert.
@@ -879,7 +963,7 @@ A short test script (`eval_test.py`) replays a fixed 5-minute segment of the dat
 - **False-alarm filter:** prevents alert fatigue; sensor errors never fire alerts.
 - **Data quality awareness:** Low Signal badge; stale data shown as "No recent data", never as normal.
 - **Medicine adherence tracking:** Taken/Missed with caregiver override and family visibility.
-- **Evaluation page:** alert latency, suppression counts, and medicine adherence metrics for judges.
+- **Dual-Engine AI & Offline Fallback:** Gemini AI summarization with an autonomous local heuristic rule engine ensuring zero failures.
 - **Dynamic simulator as default:** generates different, realistic readings every run without needing any files — no CSV required to start the app.
 - **Instant demo triggers:** `/trigger/tachycardia`, `/trigger/fever`, `/trigger/low_spo2` fire anomalies on demand, guaranteeing a live alert within 5 seconds for any judge demo.
 - **Zero-cost, zero-hardware demo:** runs on a laptop, simulates the full elderly care workflow end to end.
@@ -887,13 +971,32 @@ A short test script (`eval_test.py`) replays a fixed 5-minute segment of the dat
 
 ---
 
-## Appendix: Future Scope (README and Slides Only — No Code)
+## 22. Additional Features (Future Roadmap)
 
-- **Telugu / Hindi language toggle** for alerts, tips, and key UI labels (SpeechSynthesis voices available for both).
-- **Gemini AI plain-language daily summary** (already stubbed; full implementation needs API key and prompt tuning).
-- **ESP32 + MAX30102 (SpO2/HR) + DS18B20 (temperature)** posting the same JSON to `POST /measurements` over Wi-Fi or MQTT — no backend changes needed.
-- **Hardware fall detection** — MPU6050 accelerometer on ESP32; Fall Detection flag already wired in the ingestion pipeline.
-- **Mobile app** — React Native or Flutter consuming the same REST + WebSocket API.
-- **OTP-based phone verification** via Twilio Verify.
-- **Clinically validated threshold profiles** in partnership with a medical institution.
-- **Anomaly detection model** trained on consented, properly labelled elderly vital-sign data.
+These features represent the future development roadmap for extending the prototype into production after the core platform is built:
+
+### 22.1 Physical ESP32 Hardware & Wearable Sensor Node
+- **Wearable Sensor Integration:** Connect MAX30102 (PPG pulse oximetry and heart rate) and DS18B20 (high-accuracy digital body temperature) sensors directly to an ESP32 micro-controller.
+- **Battery-Operated Low-Power Design:** Utilize ESP32 Deep Sleep modes with 10-second wake intervals to support multi-day wearable battery life.
+- **Dual Protocol Support:** Enable Wi-Fi HTTP POST (`POST /measurements`) and lightweight MQTT telemetry streaming for unstable home Wi-Fi networks. See `firmware/esp32_example.ino` for the initial reference architecture.
+
+### 22.2 Hardware-Based Fall Detection
+- **MPU-6050 6-Axis IMU:** Accelerometer and gyroscope integration detecting sudden acceleration drops followed by high-impact spike signatures.
+- **Edge Anomaly Filtering:** Run edge-based threshold checks on the ESP32 to trigger automatic SOS alerts via the existing `fall_detected` ingestion flag.
+
+### 22.3 Multilingual Regional Voice & UI Support
+- **Localized Languages:** Add native support for Hindi, Telugu, Tamil, and Bengali across the Patient Dashboard.
+- **Bilingual Speech Alerts:** Leverage browser SpeechSynthesis with regional voice models for non-English speaking elderly patients.
+
+### 22.4 Production SMS & Messaging Integrations
+- **Twilio SMS & Voice API:** Transition from simulated SMS to automated cellular SMS and voice calls.
+- **WhatsApp Business Cloud API:** Deliver real-time vital summary cards and interactive Acknowledge buttons directly into WhatsApp family groups.
+
+### 22.5 Automated Emergency Services Dispatch
+- **Webhook Dispatch Protocol:** Automated REST webhook payloads transmitting patient medical profile, GPS location, and critical vitals directly to municipal ambulance dispatch centers upon escalated emergencies.
+
+### 22.6 On-Device Edge AI Anomaly Detection
+- **TinyML on ESP32:** Deploy lightweight TensorFlow Lite for Microcontrollers models on the ESP32 to detect cardiac arrhythmias locally without requiring internet connectivity.
+
+### 22.7 Electronic Health Records Integration
+- **ABDM & FHIR Compliance:** Align telemetry and audit logs with Ayushman Bharat Digital Mission (ABDM) and HL7 FHIR standards for seamless export into hospital electronic health record systems.
