@@ -289,7 +289,7 @@ Features planned for post-prototype development:
 | **Source** | Kaggle |
 | **Records** | 60,000 rows, 13 columns |
 | **License** | Open license for educational and research prototyping |
-| **Used for** | Optional dataset replay source (`replayer.py`). Not used for model training. |
+| **Used for** | Optional dataset replay source (`simulator.py` dataset-replay mode). Not used for model training. |
 | **Columns used** | Heart Rate (bpm), SpO2 Level (%), Body Temperature (°C), Fall Detection, Data Accuracy (%) |
 | **Not used** | Predicted Disease is strictly isolated and never shown on any user-facing screen |
 

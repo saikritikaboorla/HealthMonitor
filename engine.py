@@ -390,7 +390,8 @@ class AlertRulesEngine:
                         patient_id=pid,
                         patient_name=p["name"],
                         severity="Critical",
-                        explanation=expl
+                        explanation=expl,
+                        escalated=False
                     )
                     log_audit_event("DEVICE_OFFLINE", actor="AlertRulesEngine", patient_id=pid, new_val=expl)
 
