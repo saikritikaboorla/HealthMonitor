@@ -53,6 +53,22 @@ const PT_USERS = {
   p4: { username: 'patient.d', label: 'Demo Patient D' },
 };
 
+function showLoginForm() {
+  const splash  = document.getElementById('loginSplash');
+  const overlay = document.getElementById('loginFormOverlay');
+  if (!splash || !overlay) return;
+  // Fade out splash
+  splash.classList.add('hide');
+  // Show form after splash fade starts
+  setTimeout(() => {
+    splash.style.display = 'none';
+    overlay.style.display = 'flex';
+    // Focus password field
+    const pwd = document.getElementById('cgPassword');
+    if (pwd) pwd.focus();
+  }, 400);
+}
+
 function switchLoginMainTab(role) {
   const isCaregiver = role === 'caregiver';
   document.getElementById('loginPanelCaregiver').style.display = isCaregiver ? 'block' : 'none';
@@ -199,6 +215,11 @@ function doLogout() {
   if (state.ws) { state.ws.close(); state.ws = null; }
   document.getElementById('mainApp').style.display  = 'none';
   document.getElementById('loginScreen').style.display = 'flex';
+  // Reset splash so it shows again on next visit
+  const splash  = document.getElementById('loginSplash');
+  const overlay = document.getElementById('loginFormOverlay');
+  if (splash)  { splash.style.display = 'flex'; splash.classList.remove('hide'); }
+  if (overlay) overlay.style.display  = 'none';
   // Reset passwords
   document.getElementById('cgPassword').value = '';
   document.getElementById('ptPassword').value = '';

@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CareBeat SmartCare — Smart Health Monitoring & Emergency Coordination</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/css/style.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
@@ -13,78 +16,181 @@
        LOGIN SCREEN — shown first, hides everything else
        =================================================================== -->
   <div id="loginScreen" class="login-screen-overlay">
-    <div class="login-container" style="max-width:520px;">
-      <div class="login-brand">
-        <div class="logo-icon" style="font-size:2.2rem;">♥</div>
-        <div>
-          <div class="brand-name" style="font-size:1.6rem;">CareBeat SmartCare</div>
-          <div class="brand-tag">Affordable Continuous Health Monitoring</div>
-        </div>
-      </div>
 
-      <p style="text-align:center;color:var(--text-muted);font-size:0.9rem;margin-bottom:20px;">
-        Select your role and sign in to access your dashboard
-      </p>
+    <!-- SPLASH LANDING — full screen, click anywhere to enter -->
+    <div class="login-splash" id="loginSplash" onclick="showLoginForm()">
+      <div class="login-splash-inner">
+        <div class="login-splash-logo">
+          <div class="login-logo-icon">♥</div>
+        </div>
+        <h1 class="login-left-title">CareBeat<br><span>SmartCare</span></h1>
+        <p class="login-left-subtitle">Affordable Continuous Health Monitoring & Emergency Alert System</p>
 
-      <!-- Top-level Role Tabs: Caregiver | Patient -->
-      <div class="login-role-tabs" style="margin-bottom:0;border-bottom:2px solid var(--border);">
-        <button class="login-role-tab active" id="loginTabCaregiver" onclick="switchLoginMainTab('caregiver')">
-          🩺 Caregiver
-        </button>
-        <button class="login-role-tab" id="loginTabPatient" onclick="switchLoginMainTab('patient')">
-          🚨 Patient
-        </button>
-      </div>
+        <div class="login-feature-list">
+          <div class="login-feature-item">
+            <span class="login-feature-icon">📡</span>
+            <span>Live vitals every second via WebSocket</span>
+          </div>
+          <div class="login-feature-item">
+            <span class="login-feature-icon">🚨</span>
+            <span>Instant SOS & family alert notifications</span>
+          </div>
+          <div class="login-feature-item">
+            <span class="login-feature-icon">🤖</span>
+            <span>AI-powered 24h health summaries</span>
+          </div>
+          <div class="login-feature-item">
+            <span class="login-feature-icon">💊</span>
+            <span>Medicine adherence & daily check-ins</span>
+          </div>
+        </div>
 
-      <!-- ── CAREGIVER PANEL ── -->
-      <div id="loginPanelCaregiver" style="padding-top:16px;">
-        <p style="font-size:0.82rem;color:var(--text-muted);text-align:center;margin-bottom:12px;">Select a caregiver account:</p>
-        <!-- Caregiver user sub-tabs -->
-        <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;justify-content:center;">
-          <button class="login-user-chip active" id="cgChip_cg1" onclick="selectCaregiverUser('cg1')">Priya Nair</button>
-          <button class="login-user-chip" id="cgChip_cg2" onclick="selectCaregiverUser('cg2')">Amit Kumar</button>
-        </div>
-        <div class="login-form-group">
-          <label>Username</label>
-          <input type="text" id="cgUsername" class="login-input" value="priya.nair" readonly style="background:var(--surface-2);cursor:default;" />
-        </div>
-        <div class="login-form-group">
-          <label>Password</label>
-          <input type="password" id="cgPassword" class="login-input" placeholder="Enter password" />
-        </div>
-        <div id="loginErrorCaregiver" class="login-error" style="display:none;"></div>
-        <button class="login-btn" onclick="doLogin('caregiver')">Sign In as Caregiver</button>
-        <div class="login-demo-hint">Password: <strong>caregiver123</strong></div>
-      </div>
+        <div class="login-left-badge">Track 3 — Affordable Health Tech · ₹0 to demo</div>
 
-      <!-- ── PATIENT PANEL ── -->
-      <div id="loginPanelPatient" style="display:none;padding-top:16px;">
-        <p style="font-size:0.82rem;color:var(--text-muted);text-align:center;margin-bottom:12px;">Select your patient account:</p>
-        <!-- Patient user sub-tabs -->
-        <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;justify-content:center;">
-          <button class="login-user-chip active" id="ptChip_p1" onclick="selectPatientUser('p1')">Patient A</button>
-          <button class="login-user-chip" id="ptChip_p2" onclick="selectPatientUser('p2')">Patient B</button>
-          <button class="login-user-chip" id="ptChip_p3" onclick="selectPatientUser('p3')">Patient C</button>
-          <button class="login-user-chip" id="ptChip_p4" onclick="selectPatientUser('p4')">Patient D</button>
+        <div class="login-enter-hint">
+          <span>Tap anywhere to sign in</span>
+          <span class="login-enter-arrow">↓</span>
         </div>
-        <div class="login-form-group">
-          <label>Username</label>
-          <input type="text" id="ptUsername" class="login-input" value="patient.a" readonly style="background:var(--surface-2);cursor:default;" />
-        </div>
-        <div class="login-form-group">
-          <label>Password</label>
-          <input type="password" id="ptPassword" class="login-input" placeholder="Enter password" />
-        </div>
-        <div id="loginErrorPatient" class="login-error" style="display:none;"></div>
-        <button class="login-btn login-btn-patient" onclick="doLogin('patient')">Sign In as Patient</button>
-        <div class="login-demo-hint">Password: <strong>patient123</strong></div>
-      </div>
-
-      <div class="login-disclaimer" style="margin-top:20px;">
-        <strong>PROTOTYPE SYSTEM:</strong> Simulated monitoring data only. Not a medical device. Track 3: Affordable Health Tech.
       </div>
     </div>
+
+    <!-- FORM PANEL — hidden until splash is clicked, slides up -->
+    <div class="login-form-overlay" id="loginFormOverlay" style="display:none;">
+      <div class="login-split">
+
+        <!-- Left branding strip (compact, always visible) -->
+        <div class="login-left">
+          <div class="login-left-inner">
+            <div class="login-left-logo">
+              <div class="login-logo-icon">♥</div>
+            </div>
+            <h1 class="login-left-title">CareBeat<br><span>SmartCare</span></h1>
+            <p class="login-left-subtitle">Affordable Continuous Health Monitoring & Emergency Alert System</p>
+            <div class="login-feature-list">
+              <div class="login-feature-item">
+                <span class="login-feature-icon">📡</span>
+                <span>Live vitals every second via WebSocket</span>
+              </div>
+              <div class="login-feature-item">
+                <span class="login-feature-icon">🚨</span>
+                <span>Instant SOS & family alert notifications</span>
+              </div>
+              <div class="login-feature-item">
+                <span class="login-feature-icon">🤖</span>
+                <span>AI-powered 24h health summaries</span>
+              </div>
+              <div class="login-feature-item">
+                <span class="login-feature-icon">💊</span>
+                <span>Medicine adherence & daily check-ins</span>
+              </div>
+            </div>
+            <div class="login-left-badge">Track 3 — Affordable Health Tech · ₹0 to demo</div>
+          </div>
+        </div>
+
+        <!-- Right login form -->
+        <div class="login-right">
+          <div class="login-right-inner">
+
+            <div class="login-form-header">
+              <h2 class="login-form-title">Welcome back</h2>
+              <p class="login-form-desc">Select your role and sign in to your dashboard</p>
+            </div>
+
+            <!-- Role Tabs -->
+            <div class="login-role-tabs">
+              <button class="login-role-tab active" id="loginTabCaregiver" onclick="switchLoginMainTab('caregiver')">
+                🩺 Caregiver
+              </button>
+              <button class="login-role-tab" id="loginTabPatient" onclick="switchLoginMainTab('patient')">
+                🚨 Patient
+              </button>
+            </div>
+
+            <!-- ── CAREGIVER PANEL ── -->
+            <div id="loginPanelCaregiver">
+              <p class="login-select-label">Select caregiver account</p>
+              <div class="login-chip-row">
+                <button class="login-user-chip active" id="cgChip_cg1" onclick="selectCaregiverUser('cg1')">
+                  <span class="chip-avatar">P</span> Priya Nair
+                  <span class="chip-sub">Morning Shift</span>
+                </button>
+                <button class="login-user-chip" id="cgChip_cg2" onclick="selectCaregiverUser('cg2')">
+                  <span class="chip-avatar" style="background:linear-gradient(135deg,#7C3AED,#4F46E5);">A</span> Amit Kumar
+                  <span class="chip-sub">Night Shift</span>
+                </button>
+              </div>
+              <div class="login-form-group">
+                <label>Username</label>
+                <div class="login-input-wrap">
+                  <span class="login-input-icon">👤</span>
+                  <input type="text" id="cgUsername" class="login-input" value="priya.nair" readonly />
+                </div>
+              </div>
+              <div class="login-form-group">
+                <label>Password</label>
+                <div class="login-input-wrap">
+                  <span class="login-input-icon">🔒</span>
+                  <input type="password" id="cgPassword" class="login-input" placeholder="Enter your password" />
+                </div>
+              </div>
+              <div id="loginErrorCaregiver" class="login-error" style="display:none;"></div>
+              <button class="login-btn" onclick="doLogin('caregiver')">Sign In as Caregiver →</button>
+              <div class="login-demo-hint">🔑 Demo password: <strong>caregiver123</strong></div>
+            </div>
+
+            <!-- ── PATIENT PANEL ── -->
+            <div id="loginPanelPatient" style="display:none;">
+              <p class="login-select-label">Select patient account</p>
+              <div class="login-chip-row">
+                <button class="login-user-chip active" id="ptChip_p1" onclick="selectPatientUser('p1')">
+                  <span class="chip-avatar" style="background:linear-gradient(135deg,#DC2626,#EF4444);">A</span> Patient A
+                  <span class="chip-sub">Heart Patient</span>
+                </button>
+                <button class="login-user-chip" id="ptChip_p2" onclick="selectPatientUser('p2')">
+                  <span class="chip-avatar" style="background:linear-gradient(135deg,#D97706,#F59E0B);">B</span> Patient B
+                  <span class="chip-sub">Hypertension</span>
+                </button>
+                <button class="login-user-chip" id="ptChip_p3" onclick="selectPatientUser('p3')">
+                  <span class="chip-avatar" style="background:linear-gradient(135deg,#059669,#10B981);">C</span> Patient C
+                  <span class="chip-sub">Diabetic</span>
+                </button>
+                <button class="login-user-chip" id="ptChip_p4" onclick="selectPatientUser('p4')">
+                  <span class="chip-avatar" style="background:linear-gradient(135deg,#7C3AED,#8B5CF6);">D</span> Patient D
+                  <span class="chip-sub">Healthy Elderly</span>
+                </button>
+              </div>
+              <div class="login-form-group">
+                <label>Username</label>
+                <div class="login-input-wrap">
+                  <span class="login-input-icon">👤</span>
+                  <input type="text" id="ptUsername" class="login-input" value="patient.a" readonly />
+                </div>
+              </div>
+              <div class="login-form-group">
+                <label>Password</label>
+                <div class="login-input-wrap">
+                  <span class="login-input-icon">🔒</span>
+                  <input type="password" id="ptPassword" class="login-input" placeholder="Enter your password" />
+                </div>
+              </div>
+              <div id="loginErrorPatient" class="login-error" style="display:none;"></div>
+              <button class="login-btn login-btn-patient" onclick="doLogin('patient')">Sign In as Patient →</button>
+              <div class="login-demo-hint">🔑 Demo password: <strong>patient123</strong></div>
+            </div>
+
+            <div class="login-disclaimer">
+              ⚠️ Prototype system · Simulated data only · Not a medical device
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </div>
+
   </div>
+
 
   <!-- ===================================================================
        MAIN APP — hidden until logged in
