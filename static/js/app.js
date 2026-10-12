@@ -14,26 +14,203 @@ const state = {
   heroSimBreach: false,
   heroBreachClaimed: false,
   heroTracePoints: [],
-  chartInstance: null
+  chartInstance: null,
+  loggedIn: false,
+  loggedInRole: null,
+  loggedInId: null,
+  loggedInName: null
 };
 
 // --------------------------------------------------------------------------
-// Initialization
+// Login / Logout
+// --------------------------------------------------------------------------
+
+// All demo credentials — 4 patients + 2 caregivers
+const DEMO_CREDENTIALS = {
+  // Caregivers
+  'priya.nair':  { password: 'caregiver123', role: 'caregiver', id: 'cg_1', name: 'Priya Nair',  patientId: null },
+  'amit.kumar':  { password: 'caregiver123', role: 'caregiver', id: 'cg_2', name: 'Amit Kumar',  patientId: null },
+  // Patients
+  'patient.a':   { password: 'patient123',   role: 'patient',   id: 'p1',   name: 'Demo Patient A', patientId: 'p1' },
+  'patient.b':   { password: 'patient123',   role: 'patient',   id: 'p2',   name: 'Demo Patient B', patientId: 'p2' },
+  'patient.c':   { password: 'patient123',   role: 'patient',   id: 'p3',   name: 'Demo Patient C', patientId: 'p3' },
+  'patient.d':   { password: 'patient123',   role: 'patient',   id: 'p4',   name: 'Demo Patient D', patientId: 'p4' },
+};
+
+// Which caregiver chip is selected (default cg1)
+let selectedCgId = 'cg1';
+// Which patient chip is selected (default p1)
+let selectedPtId = 'p1';
+
+const CG_USERS = {
+  cg1: { username: 'priya.nair', label: 'Priya Nair' },
+  cg2: { username: 'amit.kumar', label: 'Amit Kumar' },
+};
+const PT_USERS = {
+  p1: { username: 'patient.a', label: 'Demo Patient A' },
+  p2: { username: 'patient.b', label: 'Demo Patient B' },
+  p3: { username: 'patient.c', label: 'Demo Patient C' },
+  p4: { username: 'patient.d', label: 'Demo Patient D' },
+};
+
+function switchLoginMainTab(role) {
+  const isCaregiver = role === 'caregiver';
+  document.getElementById('loginPanelCaregiver').style.display = isCaregiver ? 'block' : 'none';
+  document.getElementById('loginPanelPatient').style.display   = isCaregiver ? 'none'  : 'block';
+  document.getElementById('loginTabCaregiver').classList.toggle('active', isCaregiver);
+  document.getElementById('loginTabPatient').classList.toggle('active',  !isCaregiver);
+  // Clear passwords and errors on tab switch
+  document.getElementById('cgPassword').value = '';
+  document.getElementById('ptPassword').value = '';
+  document.getElementById('loginErrorCaregiver').style.display = 'none';
+  document.getElementById('loginErrorPatient').style.display   = 'none';
+}
+
+function selectCaregiverUser(cgKey) {
+  selectedCgId = cgKey;
+  // Update chip styles
+  Object.keys(CG_USERS).forEach(k => {
+    const el = document.getElementById(`cgChip_${k}`);
+    if (el) el.classList.toggle('active', k === cgKey);
+  });
+  // Update readonly username field
+  const u = CG_USERS[cgKey];
+  document.getElementById('cgUsername').value = u.username;
+  document.getElementById('cgPassword').value = '';
+  document.getElementById('loginErrorCaregiver').style.display = 'none';
+}
+
+function selectPatientUser(ptKey) {
+  selectedPtId = ptKey;
+  // Update chip styles
+  Object.keys(PT_USERS).forEach(k => {
+    const el = document.getElementById(`ptChip_${k}`);
+    if (el) el.classList.toggle('active', k === ptKey);
+  });
+  // Update readonly username field
+  const u = PT_USERS[ptKey];
+  document.getElementById('ptUsername').value = u.username;
+  document.getElementById('ptPassword').value = '';
+  document.getElementById('loginErrorPatient').style.display = 'none';
+}
+
+async function doLogin(role) {
+  const username = document.getElementById(role === 'caregiver' ? 'cgUsername' : 'ptUsername').value.trim();
+  const password = document.getElementById(role === 'caregiver' ? 'cgPassword' : 'ptPassword').value.trim();
+  const errorEl  = document.getElementById(role === 'caregiver' ? 'loginErrorCaregiver' : 'loginErrorPatient');
+
+  const creds = DEMO_CREDENTIALS[username];
+  if (creds && creds.password === password && creds.role === role) {
+    // Successful login
+    state.loggedIn      = true;
+    state.loggedInRole  = role;
+    state.loggedInId    = creds.id;
+    state.loggedInName  = creds.name;
+
+    // For patient login, lock to their patient ID
+    if (role === 'patient') {
+      state.selectedPatientId = creds.patientId;
+    }
+
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('mainApp').style.display     = 'block';
+
+    // Update badge in header
+    const badge = document.getElementById('loggedInBadge');
+    if (badge) badge.textContent = `👤 ${creds.name} · Sign Out`;
+
+    // Keep role selector in sync (hidden but used by some internal code)
+    const roleSel = document.getElementById('roleSelector');
+    if (roleSel) roleSel.value = role;
+    state.activeRole = role;
+
+    // Apply role-based UI restrictions BEFORE booting
+    applyRoleRestrictions(role);
+
+    // Boot the app
+    initNavigation();
+    initRoleSwitcher();
+    initWebSocket();
+    initHeroTraceCanvas();
+
+    // Await patients so the patient dashboard renders correctly on first load
+    await loadPatients();
+    loadAlerts();
+    loadMetrics();
+    loadSmsInbox();
+    setInterval(loadSmsInbox, 4000);
+    setInterval(loadSmsInboxForCaregiver, 5000);
+    setInterval(loadAlerts, 5000);
+    setInterval(loadMetrics, 6000);
+
+    // Navigate directly to the relevant dashboard — no portal select
+    if (role === 'patient') {
+      switchView('patient');
+    } else {
+      switchView('caregiver');
+    }
+  } else {
+    errorEl.textContent = 'Incorrect password. Use the password shown below.';
+    errorEl.style.display = 'block';
+  }
+}
+
+/**
+ * Show/hide nav tabs and UI elements based on who is logged in.
+ * Caregivers: Caregiver Dashboard + Judge Metrics + Simulator
+ * Patients:   Patient Dashboard only (no switching to other patients)
+ */
+function applyRoleRestrictions(role) {
+  // Nav tabs — show only tabs that match the logged-in role
+  document.querySelectorAll('.nav-tab[data-roles]').forEach(tab => {
+    const allowed = tab.dataset.roles.split(',').map(r => r.trim());
+    tab.style.display = allowed.includes(role) ? '' : 'none';
+  });
+
+  // Test Emergency button — only caregivers
+  document.querySelectorAll('[data-roles="caregiver"]').forEach(el => {
+    if (!el.classList.contains('nav-tab')) {
+      el.style.display = role === 'caregiver' ? '' : 'none';
+    }
+  });
+
+  // "Switch Patient" dropdown — only show for caregivers visiting the patient view
+  const switchWrap = document.getElementById('patientSwitchWrap');
+  if (switchWrap) switchWrap.style.display = role === 'caregiver' ? 'flex' : 'none';
+
+  // Brand click to portal select — disable for patients and non-caregiver roles
+  const brandGroup = document.querySelector('.brand-group');
+  if (brandGroup) {
+    if (role === 'patient') {
+      brandGroup.style.cursor = 'default';
+      brandGroup.onclick = null;
+    } else {
+      brandGroup.style.cursor = 'pointer';
+      brandGroup.onclick = () => switchView('caregiver');
+    }
+  }
+}
+
+function doLogout() {
+  state.loggedIn     = false;
+  state.loggedInRole = null;
+  state.loggedInId   = null;
+  state.loggedInName = null;
+  if (state.ws) { state.ws.close(); state.ws = null; }
+  document.getElementById('mainApp').style.display  = 'none';
+  document.getElementById('loginScreen').style.display = 'flex';
+  // Reset passwords
+  document.getElementById('cgPassword').value = '';
+  document.getElementById('ptPassword').value = '';
+  document.getElementById('loginErrorCaregiver').style.display = 'none';
+  document.getElementById('loginErrorPatient').style.display   = 'none';
+}
+
+// --------------------------------------------------------------------------
+// Initialization — called after login, not on DOMContentLoaded
 // --------------------------------------------------------------------------
 document.addEventListener('DOMContentLoaded', () => {
-  initNavigation();
-  initRoleSwitcher();
-  initWebSocket();
-  initHeroTraceCanvas();
-  loadPatients();
-  loadAlerts();
-  loadMetrics();
-  loadSmsInbox();
-
-  // Polling for stats and SMS fallback
-  setInterval(loadSmsInbox, 4000);
-  setInterval(loadAlerts, 5000);
-  setInterval(loadMetrics, 6000);
+  // Only show the login screen on load — nothing else boots until login
 });
 
 // --------------------------------------------------------------------------
@@ -62,14 +239,13 @@ function switchView(viewName) {
     renderCaregiverDashboard();
   } else if (viewName === 'patient') {
     renderPatientSosView();
-  } else if (viewName === 'family') {
-    renderFamilyView();
   } else if (viewName === 'metrics') {
     loadMetrics();
     loadAuditTrail();
     loadCaregiverQueue();
   } else if (viewName === 'simulator') {
     loadSimulatorStats();
+    loadWhatsappInbox();
   }
 }
 
@@ -81,8 +257,6 @@ function initRoleSwitcher() {
       showToast(`Switched active role to: ${sel.options[sel.selectedIndex].text}`);
       if (state.activeRole === 'patient') {
         switchView('patient');
-      } else if (state.activeRole === 'family') {
-        switchView('family');
       } else if (state.activeRole === 'admin') {
         switchView('metrics');
       } else {
@@ -145,6 +319,10 @@ function handleWebSocketMessage(msg) {
     if (msg.data.patient_id === state.selectedPatientId) {
       appendReadingToChart(msg.data);
       renderSelectedPatientDetail();
+      // Live-update patient dashboard vitals if on patient view
+      if (state.activeView === 'patient') {
+        updatePatientSosVitals(msg.data);
+      }
     }
   } else if (msg.type === 'alert_new') {
     state.alerts.unshift(msg.data);
@@ -220,13 +398,24 @@ function hideSiren() {
 // --------------------------------------------------------------------------
 async function loadPatients() {
   try {
-    const res = await fetch('/patients');
+    // Caregivers only see their assigned patients
+    let url = '/patients';
+    if (state.loggedInRole === 'caregiver' && state.loggedInId) {
+      url = `/patients?caregiver_id=${encodeURIComponent(state.loggedInId)}`;
+    }
+    const res = await fetch(url);
     if (res.ok) {
       state.patients = await res.json();
+      // For patient login, always ensure selectedPatientId matches their own record
+      if (state.loggedInRole === 'patient' && state.loggedInId) {
+        state.selectedPatientId = state.loggedInId;
+      } else if (state.patients.length > 0 && !state.patients.find(p => p.patient_id === state.selectedPatientId)) {
+        // If current selection isn't in the filtered list, default to first
+        state.selectedPatientId = state.patients[0].patient_id;
+      }
       renderPatientCards();
       renderSelectedPatientDetail();
       if (state.activeView === 'patient') renderPatientSosView();
-      if (state.activeView === 'family') renderFamilyView();
     }
   } catch (e) {
     console.error('Failed to load patients:', e);
@@ -240,6 +429,28 @@ function updatePatientVitalsInMemory(vital) {
     p.is_stale = false;
     renderPatientCardVitals(p);
   }
+}
+
+/**
+ * Lightweight live update for the patient dashboard big vitals display.
+ * Only touches the number elements — doesn't re-render the whole view.
+ */
+function updatePatientSosVitals(vital) {
+  const hrEl   = document.getElementById('sosBigHr');
+  const tempEl = document.getElementById('sosBigTemp');
+  const spo2El = document.getElementById('sosBigSpo2');
+
+  if (hrEl   && vital.heart_rate  != null) hrEl.textContent   = vital.heart_rate;
+  if (tempEl && vital.temperature != null) tempEl.textContent = vital.temperature;
+  if (spo2El && vital.spo2        != null) spo2El.textContent = vital.spo2;
+
+  // Flash the vitals briefly to show they updated
+  [hrEl, tempEl, spo2El].forEach(el => {
+    if (!el) return;
+    el.style.transition = 'color 0.15s';
+    el.style.color = '#5FD0D8';
+    setTimeout(() => { el.style.color = ''; }, 300);
+  });
 }
 
 async function loadAlerts() {
@@ -269,6 +480,8 @@ function renderCaregiverDashboard() {
   renderSelectedPatientDetail();
   renderAlertsList();
   loadPatientHistory(state.selectedPatientId);
+  loadEmergencyContactsForCaregiver(state.selectedPatientId);
+  loadSmsInboxForCaregiver();
 }
 
 function renderPatientCards() {
@@ -374,6 +587,8 @@ async function renderSelectedPatientDetail() {
   loadThresholdConfig(p.patient_id);
   // Load Handover Notes
   loadHandoverNotes(p.patient_id);
+  // Load Emergency Family Contacts into Caregiver panel
+  loadEmergencyContactsForCaregiver(p.patient_id);
 }
 
 // --------------------------------------------------------------------------
@@ -496,20 +711,55 @@ async function triggerAISummary() {
 async function loadPatientTips(pid) {
   try {
     const res = await fetch(`/patients/${pid}/tips`);
-    if (res.ok) {
-      const data = await res.json();
-      const wrap = document.getElementById('dailyTipsList');
-      if (wrap && data.tips) {
-        wrap.innerHTML = data.tips.map(t => `
-          <div style="margin-bottom:8px;">
-            <strong style="font-size:0.85rem;color:var(--brand);">${t.title}:</strong>
-            <span style="font-size:0.85rem;color:var(--text);">${t.tip}</span>
+    if (!res.ok) return;
+    const data = await res.json();
+    const tips = data.tips || [];
+
+    const DIET_KEYWORDS = ['diet', 'glucose', 'hydration', 'cardiac', 'blood pressure', 'temperature', 'nutrition', 'sodium', 'fluid', 'meal', 'food'];
+    const dietTips    = tips.filter(t => DIET_KEYWORDS.some(k => t.title.toLowerCase().includes(k)));
+    const otherTips   = tips.filter(t => !DIET_KEYWORDS.some(k => t.title.toLowerCase().includes(k)));
+    const displayDiet = dietTips.length > 0 ? dietTips : tips.slice(0, 1);
+    const displayOther = dietTips.length > 0 ? otherTips : tips.slice(1);
+
+    const ICONS = { 'Hydration': '💧', 'Glucose': '🩸', 'Blood Pressure': '🫀', 'Cardiac': '❤️', 'Temperature': '🌡️', 'Diet': '🥗', 'Nutrition': '🥦', 'Sodium': '🧂', 'Fluid': '💧', 'Meal': '🍽️' };
+    function getIcon(title) {
+      return Object.entries(ICONS).find(([k]) => title.includes(k))?.[1] || '🥗';
+    }
+
+    // Diet section — caregiver panel
+    const cgDietWrap = document.getElementById('cgDietTipContent');
+    if (cgDietWrap) {
+      if (displayDiet.length === 0) {
+        cgDietWrap.innerHTML = `<div style="font-size:0.85rem;color:var(--text-muted);">No diet guidance available.</div>`;
+      } else {
+        cgDietWrap.innerHTML = displayDiet.map(t => `
+          <div style="display:flex;gap:12px;align-items:flex-start;padding:10px 12px;background:linear-gradient(135deg,#F0FDF4,#ECFDF5);border:1px solid #A7F3D0;border-radius:var(--radius-sm);margin-bottom:8px;">
+            <span style="font-size:1.5rem;line-height:1.2;">${getIcon(t.title)}</span>
+            <div>
+              <strong style="font-size:0.9rem;color:#065F46;display:block;margin-bottom:3px;">${t.title}</strong>
+              <span style="font-size:0.85rem;color:#047857;line-height:1.5;">${t.tip}</span>
+            </div>
+          </div>
+        `).join('');
+      }
+    }
+
+    // Other wellness tips section
+    const otherWrap = document.getElementById('dailyTipsList');
+    if (otherWrap) {
+      if (displayOther.length === 0) {
+        otherWrap.innerHTML = `<div style="font-size:0.82rem;color:var(--text-muted);">No additional tips.</div>`;
+      } else {
+        otherWrap.innerHTML = displayOther.map(t => `
+          <div style="margin-bottom:8px;font-size:0.84rem;">
+            <strong style="color:var(--brand);">${t.title}:</strong>
+            <span style="color:var(--text);"> ${t.tip}</span>
           </div>
         `).join('');
       }
     }
   } catch (e) {
-    console.error(e);
+    console.error('Failed to load patient tips:', e);
   }
 }
 
@@ -667,7 +917,11 @@ let sosHoldSeconds = 0;
 
 function renderPatientSosView() {
   const p = state.patients.find(pt => pt.patient_id === state.selectedPatientId) || state.patients[0];
-  if (!p) return;
+  if (!p) {
+    // Patients not yet loaded — retry after a short delay
+    setTimeout(renderPatientSosView, 500);
+    return;
+  }
 
   const m = p.latest_measurement || {};
   const nameEl = document.getElementById('patientScreenName');
@@ -690,8 +944,15 @@ function renderPatientSosView() {
   if (tempEl) tempEl.textContent = m.temperature != null ? m.temperature : '--';
   if (spo2El) spo2El.textContent = m.spo2 != null ? m.spo2 : '--';
 
-  loadPatientMedsForPatientScreen(p.patient_id);
-  setupSosButton();
+  // Only load heavy sections on first render or patient switch — not on every WS tick
+  const alreadyLoaded = document.getElementById('patientScreenName')?.dataset.loadedPid === p.patient_id;
+  if (!alreadyLoaded) {
+    if (nameEl) nameEl.dataset.loadedPid = p.patient_id;
+    loadPatientMedsForPatientScreen(p.patient_id);
+    setupSosButton();
+    loadFamilyDetailsForPatient(p.patient_id);
+    loadDietTipForPatient(p.patient_id);
+  }
 }
 
 function onPatientViewSelect(pid) {
@@ -811,6 +1072,25 @@ function setupSosButton() {
       triggerSosDirect();
     }
   };
+
+  // Show floating SOS button when the main SOS button scrolls out of view
+  initFloatingSosWatcher();
+}
+
+function initFloatingSosWatcher() {
+  const mainBtn   = document.getElementById('patientSosHoldBtn');
+  const floatBtn  = document.getElementById('floatingSosBtn');
+  if (!mainBtn || !floatBtn) return;
+
+  // Use IntersectionObserver — most efficient, no scroll jank
+  const observer = new IntersectionObserver(
+    ([entry]) => {
+      // Show floating button when main button is NOT visible
+      floatBtn.style.display = entry.isIntersecting ? 'none' : 'block';
+    },
+    { threshold: 0.1 }
+  );
+  observer.observe(mainBtn);
 }
 
 function startSosHold(e) {
@@ -867,19 +1147,178 @@ async function recordCheckIn() {
 }
 
 // --------------------------------------------------------------------------
-// Family View & Simulated Phone Screen (§14.4)
+// Family Contacts — Caregiver Emergency Contacts Panel
 // --------------------------------------------------------------------------
-function renderFamilyView() {
-  const p = state.patients.find(pt => pt.patient_id === state.selectedPatientId) || state.patients[0];
-  if (!p) return;
+async function loadEmergencyContactsForCaregiver(pid) {
+  const wrap = document.getElementById('cgEmergencyContactsList');
+  if (!wrap) return;
+  try {
+    const res = await fetch(`/patients/${pid}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    const contacts = data.family_contacts || [];
+    if (contacts.length === 0) {
+      wrap.innerHTML = `<div style="font-size:0.85rem;color:var(--text-muted);">No family contacts registered for this patient.</div>`;
+      return;
+    }
+    wrap.innerHTML = contacts.map(c => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);">
+        <div>
+          <strong style="font-size:0.92rem;color:var(--ink);">${c.name}</strong>
+          <span style="font-size:0.75rem;color:var(--text-muted);margin-left:6px;">(${c.relation})</span>
+          <div style="font-size:0.78rem;color:var(--text-muted);margin-top:2px;">
+            📞 ${c.phone_masked} &nbsp;•&nbsp;
+            <span style="color:${c.priority === 'primary' ? 'var(--brand)' : '#7A4A00'};font-weight:600;">
+              ${c.priority === 'primary' ? '⭐ Primary' : '2nd Contact'}
+            </span>
+            &nbsp;•&nbsp;
+            <span style="color:${c.verification_status === 'Verified' ? '#14663F' : '#7A4A00'};">${c.verification_status}</span>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;">
+          <a href="tel:${c.phone_raw || ''}" class="btn-sm btn-ack" style="text-decoration:none;">📞 Call</a>
+          <a href="https://wa.me/${(c.phone_raw || '').replace(/[^0-9]/g,'')}?text=Emergency+update+regarding+your+family+member+from+CareBeat"
+             target="_blank" class="btn-sm" style="background:#25D366;color:white;border:none;text-decoration:none;">💬 WhatsApp</a>
+        </div>
+      </div>
+    `).join('');
+  } catch (e) {
+    console.error('Failed to load emergency contacts:', e);
+  }
+}
 
-  const fName = document.getElementById('familyPatientName');
-  if (fName) fName.textContent = p.name;
+// --------------------------------------------------------------------------
+// Family Details — Patient Dashboard
+// --------------------------------------------------------------------------
+async function loadFamilyDetailsForPatient(pid) {
+  const wrap = document.getElementById('patientFamilyContactsList');
+  if (!wrap) return;
+  try {
+    const res = await fetch(`/patients/${pid}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    const contacts = data.family_contacts || [];
+    if (contacts.length === 0) {
+      wrap.innerHTML = `<div style="font-size:0.9rem;color:var(--text-muted);">No family contacts registered.</div>`;
+      return;
+    }
+    wrap.innerHTML = contacts.map(c => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border);">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div style="width:40px;height:40px;border-radius:50%;background:var(--brand);display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:1rem;">
+            ${c.name.charAt(0)}
+          </div>
+          <div>
+            <strong style="font-size:1rem;color:var(--ink);">${c.name}</strong>
+            <div style="font-size:0.82rem;color:var(--text-muted);">${c.relation} &nbsp;•&nbsp; ${c.phone_masked}</div>
+            <div style="font-size:0.75rem;margin-top:2px;">
+              <span style="color:${c.priority === 'primary' ? 'var(--brand)' : '#7A4A00'};font-weight:600;">
+                ${c.priority === 'primary' ? '⭐ Primary Emergency Contact' : '2nd Emergency Contact'}
+              </span>
+            </div>
+          </div>
+        </div>
+        <a href="tel:${c.phone_raw || ''}" class="btn-sm btn-ack" style="text-decoration:none;font-size:0.9rem;padding:8px 14px;">📞 Call</a>
+      </div>
+    `).join('');
+  } catch (e) {
+    console.error('Failed to load family details:', e);
+  }
+}
 
-  const fScore = document.getElementById('familyPatientScore');
-  if (fScore) fScore.textContent = `${p.health_score || 95}/100`;
+// --------------------------------------------------------------------------
+// Diet Tips — Patient Dashboard
+// --------------------------------------------------------------------------
+async function loadDietTipForPatient(pid) {
+  const wrap = document.getElementById('patientDietTipContent');
+  if (!wrap) return;
+  try {
+    const res = await fetch(`/patients/${pid}/tips`);
+    if (!res.ok) return;
+    const data = await res.json();
+    const tips = data.tips || [];
+    // Find a diet-specific tip or show all tips with icons
+    const dietTips = tips.filter(t =>
+      t.title.toLowerCase().includes('diet') ||
+      t.title.toLowerCase().includes('glucose') ||
+      t.title.toLowerCase().includes('hydration') ||
+      t.title.toLowerCase().includes('cardiac') ||
+      t.title.toLowerCase().includes('blood pressure') ||
+      t.title.toLowerCase().includes('temperature')
+    );
+    const displayTips = dietTips.length > 0 ? dietTips : tips;
+    if (displayTips.length === 0) {
+      wrap.innerHTML = `<div style="font-size:0.88rem;color:var(--text-muted);">No tips available.</div>`;
+      return;
+    }
+    const icons = { 'Hydration': '💧', 'Glucose': '🩸', 'Blood Pressure': '🫀', 'Cardiac': '❤️', 'Temperature': '🌡️', 'Diet': '🥗' };
+    wrap.innerHTML = displayTips.map(t => {
+      const icon = Object.entries(icons).find(([k]) => t.title.includes(k))?.[1] || '🥗';
+      return `
+        <div style="display:flex;gap:12px;align-items:flex-start;padding:10px;background:var(--surface-2);border-radius:var(--radius-sm);margin-bottom:8px;">
+          <span style="font-size:1.6rem;line-height:1;">${icon}</span>
+          <div>
+            <strong style="font-size:0.92rem;color:var(--brand);display:block;margin-bottom:2px;">${t.title}</strong>
+            <span style="font-size:0.88rem;color:var(--text);line-height:1.5;">${t.tip}</span>
+          </div>
+        </div>
+      `;
+    }).join('');
+  } catch (e) {
+    console.error('Failed to load diet tips:', e);
+  }
+}
 
-  loadSmsInbox();
+// --------------------------------------------------------------------------
+// Caregiver SMS Notification Log
+// --------------------------------------------------------------------------
+async function loadSmsInboxForCaregiver() {
+  const wrap = document.getElementById('cgSmsInboxList');
+  if (!wrap) return;
+  try {
+    const res = await fetch('/notifications/sms-inbox');
+    if (!res.ok) return;
+    const msgs = await res.json();
+    if (msgs.length === 0) {
+      wrap.innerHTML = `<div style="font-size:0.82rem;color:var(--text-muted);padding:8px 0;">No SMS notifications sent yet.</div>`;
+      return;
+    }
+    wrap.innerHTML = msgs.slice(0, 20).map(m => {
+      const isReport   = m.recipient_type === 'family_daily_report';
+      const isCritical = m.message.includes('CRITICAL') || m.message.includes('SOS');
+      const isWarning  = m.message.includes('Warning') || m.message.includes('WARNING');
+
+      const borderColor = isCritical ? 'var(--crit-solid)' : isWarning ? '#D97706' : isReport ? 'var(--brand)' : 'var(--border)';
+      const labelColor  = isCritical ? 'var(--crit-solid)' : isWarning ? '#D97706' : isReport ? 'var(--brand)' : 'var(--ink)';
+      const badge = isReport
+        ? `<span style="font-size:0.7rem;background:#EFF6FF;color:var(--brand);border:1px solid #BFDBFE;padding:1px 6px;border-radius:10px;font-weight:700;">📋 Daily Report</span>`
+        : isCritical
+        ? `<span style="font-size:0.7rem;background:#FEE2E2;color:var(--crit-solid);border:1px solid #FECACA;padding:1px 6px;border-radius:10px;font-weight:700;">🚨 Alert</span>`
+        : isWarning
+        ? `<span style="font-size:0.7rem;background:#FFFBEB;color:#D97706;border:1px solid #FDE68A;padding:1px 6px;border-radius:10px;font-weight:700;">⚠️ Warning</span>`
+        : `<span style="font-size:0.7rem;background:#F1F5F9;color:#64748B;border:1px solid #CBD5E1;padding:1px 6px;border-radius:10px;font-weight:700;">📱 SMS</span>`;
+
+      // For daily reports show a collapsed preview, not the full text
+      const preview = isReport
+        ? m.message.split('\n').slice(0, 5).join(' · ')
+        : m.message;
+
+      return `
+        <div style="padding:8px 0 8px 10px;border-left:3px solid ${borderColor};border-bottom:1px solid var(--border);font-size:0.82rem;margin-bottom:2px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:4px;margin-bottom:4px;">
+            <div style="display:flex;align-items:center;gap:6px;">
+              ${badge}
+              <span style="font-weight:600;color:${labelColor};">To: ${m.phone_masked}</span>
+            </div>
+            <span style="color:var(--text-muted);font-size:0.75rem;white-space:nowrap;">${m.sent_at ? m.sent_at.split('T')[1].split('.')[0] : ''}</span>
+          </div>
+          <div style="color:var(--text);line-height:1.4;font-size:0.8rem;">${preview}</div>
+        </div>
+      `;
+    }).join('');
+  } catch (e) {
+    console.error('Failed to load SMS inbox:', e);
+  }
 }
 
 async function loadSmsInbox() {
@@ -901,6 +1340,8 @@ async function loadSmsInbox() {
           `).join('');
         }
       }
+      // Also refresh caregiver SMS panel if visible
+      loadSmsInboxForCaregiver();
     }
   } catch (e) {
     console.error(e);
@@ -1035,6 +1476,81 @@ async function loadSimulatorStats() {
     const data = await res.json();
     const lbl = document.getElementById('currentSourceLabel');
     if (lbl) lbl.textContent = data.source;
+  }
+}
+
+// --------------------------------------------------------------------------
+// Family WhatsApp Daily Report — Simulator Tab
+// --------------------------------------------------------------------------
+async function triggerDailyReport() {
+  const btn = document.querySelector('[onclick="triggerDailyReport()"]');
+  if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; }
+  try {
+    const res = await fetch('/trigger/daily-report', { method: 'POST' });
+    if (res.ok) {
+      const data = await res.json();
+      showToast(`📲 ${data.message}`, false);
+      await loadWhatsappInbox();
+      loadSmsInboxForCaregiver();
+    } else {
+      showToast('Failed to send daily report. Check server logs.', true);
+    }
+  } catch (e) {
+    showToast('Error sending daily report.', true);
+  } finally {
+    if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
+  }
+}
+
+async function loadWhatsappInbox() {
+  const wrap = document.getElementById('whatsappInboxList');
+  if (!wrap) return;
+  try {
+    const res = await fetch('/notifications/sms-inbox');
+    if (!res.ok) return;
+    const msgs = await res.json();
+    const relevant = msgs.filter(m =>
+      m.recipient_type === 'family_daily_report' ||
+      m.recipient_type === 'family' ||
+      m.recipient_type === 'family_secondary'
+    );
+    if (relevant.length === 0) {
+      wrap.innerHTML = `<div style="font-size:0.82rem;color:var(--text-muted);padding:8px 0;">No family notifications sent yet. Click "Send Morning Health Report" to demo.</div>`;
+      return;
+    }
+    wrap.innerHTML = relevant.slice(0, 15).map(m => {
+      const isReport   = m.recipient_type === 'family_daily_report';
+      const isCritical = m.message.includes('CRITICAL') || m.message.includes('SOS');
+      const isWarning  = m.message.includes('Warning') || m.message.includes('WARNING');
+      const badge = isReport
+        ? `<span style="font-size:0.7rem;background:#dcfce7;color:#15803D;padding:1px 7px;border-radius:10px;font-weight:700;">📋 Daily Report</span>`
+        : isCritical
+        ? `<span style="font-size:0.7rem;background:#FEE2E2;color:#DC2626;padding:1px 7px;border-radius:10px;font-weight:700;">🚨 Critical Alert</span>`
+        : isWarning
+        ? `<span style="font-size:0.7rem;background:#FFFBEB;color:#D97706;padding:1px 7px;border-radius:10px;font-weight:700;">⚠️ Warning</span>`
+        : `<span style="font-size:0.7rem;background:#f0fdf4;color:#15803D;padding:1px 7px;border-radius:10px;font-weight:700;">📱 Family Alert</span>`;
+
+      // Collapse long daily report messages to first 4 lines
+      const preview = isReport
+        ? m.message.split('\n').slice(0, 5).join('\n')
+        : m.message;
+
+      return `
+        <div style="padding:10px;border:1px solid #bbf7d0;border-radius:8px;margin-bottom:8px;background:#f0fdf4;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+            <div style="display:flex;align-items:center;gap:6px;">
+              <span style="color:#25D366;font-size:1rem;">●</span>
+              ${badge}
+            </div>
+            <span style="font-size:0.74rem;color:#64748B;">${m.sent_at ? m.sent_at.split('T')[1].split('.')[0] : ''}</span>
+          </div>
+          <div style="font-size:0.78rem;color:#374151;font-weight:600;margin-bottom:3px;">To: ${m.phone_masked}</div>
+          <pre style="font-size:0.75rem;color:#374151;white-space:pre-wrap;margin:0;font-family:inherit;line-height:1.5;">${preview}</pre>
+        </div>
+      `;
+    }).join('');
+  } catch (e) {
+    console.error('Failed to load WhatsApp inbox:', e);
   }
 }
 

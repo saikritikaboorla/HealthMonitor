@@ -183,6 +183,14 @@ def seed():
         INSERT INTO caregiver_assignments (assignment_id, patient_id, caregiver_id, shift, agreed_fee, start_date, status)
         VALUES ('asg_2', 'p2', 'cg_1', 'Morning (08:00 - 16:00)', '₹19,000 / month', '2026-09-15', 'active')
     """)
+    cursor.execute("""
+        INSERT INTO caregiver_assignments (assignment_id, patient_id, caregiver_id, shift, agreed_fee, start_date, status)
+        VALUES ('asg_3', 'p3', 'cg_2', 'Night (20:00 - 08:00)', '₹17,000 / month', '2026-09-20', 'active')
+    """)
+    cursor.execute("""
+        INSERT INTO caregiver_assignments (assignment_id, patient_id, caregiver_id, shift, agreed_fee, start_date, status)
+        VALUES ('asg_4', 'p4', 'cg_2', 'Night (20:00 - 08:00)', '₹16,000 / month', '2026-09-20', 'active')
+    """)
 
     print("Seeding fee negotiations...")
     cursor.execute("""

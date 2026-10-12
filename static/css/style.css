@@ -853,6 +853,33 @@ canvas#heroTraceCanvas {
   background: #991B1B;
 }
 
+/* Floating SOS button — fixed bottom-right, shown when main SOS is off-screen */
+.floating-sos-btn {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  z-index: 9999;
+  background: radial-gradient(circle, #EF4444 0%, #B91C1C 100%);
+  color: white;
+  border: 4px solid #FEE2E2;
+  border-radius: 50px;
+  padding: 14px 24px;
+  font-size: 1.2rem;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  box-shadow: 0 8px 25px rgba(220, 38, 38, 0.55);
+  animation: sos-pulse-ring 2s infinite;
+  transition: transform 0.15s ease, opacity 0.25s ease;
+}
+.floating-sos-btn:hover {
+  transform: scale(1.06);
+}
+.floating-sos-btn:active {
+  transform: scale(0.95);
+  background: #991B1B;
+}
+
 .sos-subtext {
   font-size: 0.82rem;
   font-weight: 600;
@@ -1125,4 +1152,173 @@ table.data-table tr:hover {
   .family-view-grid { grid-template-columns: 1fr; }
   .sim-controls-grid { grid-template-columns: 1fr; }
   .patient-widgets-grid { grid-template-columns: 1fr; }
+}
+
+/* ==========================================================================
+   Login Screen
+   ========================================================================== */
+.login-screen-overlay {
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(135deg, #0A1C22 0%, #0D2B35 60%, #0F3D4A 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 20px;
+}
+
+.login-container {
+  background: var(--surface, #fff);
+  border-radius: 16px;
+  padding: 36px 40px;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.4);
+}
+
+.login-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.login-role-tabs {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--border, #CBD5E1);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 24px;
+}
+
+.login-role-tab {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  background: var(--surface-2, #F1F5F9);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--text-muted, #64748B);
+  transition: background 0.2s, color 0.2s;
+}
+
+.login-role-tab.active {
+  background: var(--brand, #0F7C86);
+  color: white;
+}
+
+/* Per-user selector chips on the login screen */
+.login-user-chip {
+  padding: 7px 16px;
+  border: 2px solid var(--border, #CBD5E1);
+  border-radius: 20px;
+  background: var(--surface-2, #F1F5F9);
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--text-muted, #64748B);
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+.login-user-chip:hover {
+  border-color: var(--brand, #0F7C86);
+  color: var(--brand, #0F7C86);
+}
+.login-user-chip.active {
+  border-color: var(--brand, #0F7C86);
+  background: var(--brand, #0F7C86);
+  color: white;
+}
+
+.login-form-group {
+  margin-bottom: 14px;
+}
+
+.login-form-group label {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-muted, #64748B);
+  margin-bottom: 5px;
+}
+
+.login-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border, #CBD5E1);
+  border-radius: 8px;
+  font-size: 0.92rem;
+  font-family: inherit;
+  box-sizing: border-box;
+  background: var(--surface-2, #F8FAFC);
+  color: var(--ink, #0F2027);
+  transition: border-color 0.2s;
+}
+
+.login-input:focus {
+  outline: none;
+  border-color: var(--brand, #0F7C86);
+}
+
+.login-btn {
+  width: 100%;
+  padding: 12px;
+  background: var(--brand, #0F7C86);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  margin-top: 6px;
+  transition: background 0.2s;
+}
+
+.login-btn:hover {
+  background: #0D6B74;
+}
+
+.login-btn-patient {
+  background: #DC2626;
+}
+
+.login-btn-patient:hover {
+  background: #B91C1C;
+}
+
+.login-error {
+  color: #DC2626;
+  font-size: 0.82rem;
+  margin-top: 6px;
+  margin-bottom: 6px;
+  padding: 8px 10px;
+  background: #FEF2F2;
+  border-radius: 6px;
+  border: 1px solid #FECACA;
+}
+
+.login-demo-hint {
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--text-muted, #64748B);
+  margin-top: 10px;
+}
+
+.login-disclaimer {
+  margin-top: 24px;
+  padding: 10px 12px;
+  background: var(--surface-2, #F1F5F9);
+  border-radius: 8px;
+  font-size: 0.75rem;
+  color: var(--text-muted, #64748B);
+  text-align: center;
+  line-height: 1.5;
+}
+
+/* Patient diet tip card */
+.patient-diet-tip-card {
+  border-left: 4px solid #10B981;
 }

@@ -56,10 +56,28 @@ simulator.register_broadcast_callback(manager.broadcast)
 
 # Background task reference
 simulator_task = None
+daily_report_task = None
+
+async def daily_report_scheduler():
+    """Fires send_daily_report() every day at 08:00 local time."""
+    while True:
+        now = datetime.now()
+        # Next 08:00
+        next_run = now.replace(hour=8, minute=0, second=0, microsecond=0)
+        if next_run <= now:
+            next_run += timedelta(days=1)
+        wait_seconds = (next_run - now).total_seconds()
+        logger.info(f"Daily report scheduler: next run at {next_run.strftime('%Y-%m-%d %H:%M:%S')} (in {wait_seconds:.0f}s)")
+        await asyncio.sleep(wait_seconds)
+        try:
+            deliveries = await notification_service.send_daily_report()
+            logger.info(f"Daily morning report dispatched: {len(deliveries)} messages sent.")
+        except Exception as e:
+            logger.error(f"Daily report scheduler error: {e}")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global simulator_task
+    global simulator_task, daily_report_task
     init_db()
     # Check if database has patients; if not, run seed
     conn = get_db()
@@ -74,12 +92,16 @@ async def lifespan(app: FastAPI):
 
     # Launch background simulator loop
     simulator_task = asyncio.create_task(simulator.run_loop())
+    # Launch daily morning report scheduler
+    daily_report_task = asyncio.create_task(daily_report_scheduler())
     logger.info("CareBeat startup complete.")
     yield
     # Shutdown
     simulator.stop()
     if simulator_task:
         simulator_task.cancel()
+    if daily_report_task:
+        daily_report_task.cancel()
     logger.info("CareBeat shutdown complete.")
 
 app = FastAPI(title="CareBeat Health Monitoring API", lifespan=lifespan)
@@ -117,10 +139,19 @@ async def websocket_endpoint(websocket: WebSocket):
 # Patients & Registration Endpoints
 # --------------------------------------------------------------------------
 @app.get("/patients")
-def list_patients():
+def list_patients(caregiver_id: str = None):
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM patients")
+
+    # If caregiver_id provided, only return their assigned patients
+    if caregiver_id:
+        cursor.execute("""
+            SELECT p.* FROM patients p
+            JOIN caregiver_assignments ca ON p.patient_id = ca.patient_id
+            WHERE ca.caregiver_id = ? AND ca.status = 'active'
+        """, (caregiver_id,))
+    else:
+        cursor.execute("SELECT * FROM patients")
     rows = cursor.fetchall()
     result = []
     for r in rows:
@@ -811,6 +842,19 @@ def trigger_low_spo2(patient_id: str = "p1", duration: int = 30):
 def simulate_emergency(patient_id: str = "p1", duration: int = 30):
     simulator.trigger_anomaly(patient_id, "emergency", duration)
     return {"status": "triggered", "patient_id": patient_id, "anomaly": "emergency", "duration": duration}
+
+@app.post("/trigger/daily-report")
+async def trigger_daily_report():
+    """Manually fire the morning family report for all patients. For demo/judge use."""
+    try:
+        deliveries = await notification_service.send_daily_report()
+        return {
+            "status": "sent",
+            "deliveries": len(deliveries),
+            "message": f"Daily morning report dispatched to family contacts of all patients ({len(deliveries)} messages)."
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/demo/source")
 def get_demo_source():

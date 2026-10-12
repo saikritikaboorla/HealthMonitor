@@ -238,42 +238,61 @@ class AIService:
 
     def generate_daily_tips(self, condition_tags: List[str], current_vitals: Optional[Dict[str, Any]] = None) -> List[Dict[str, str]]:
         """
-        Generates tailored wellness suggestions per §8.2 without medical diagnosis or dosage advice.
+        Generates tailored wellness and diet suggestions per §8.2 without medical diagnosis or dosage advice.
         """
         tips = []
 
         # General baseline tip
         tips.append({
             "title": "Hydration & Rest",
-            "tip": "Encourage regular sips of water through the day and quiet resting intervals after meals."
+            "tip": "Encourage regular sips of water through the day and quiet resting intervals after meals. Aim for 6–8 glasses of water daily."
         })
 
         tags_lower = [t.lower() for t in condition_tags]
 
         if any("bp" in t or "hypertension" in t for t in tags_lower):
             tips.append({
+                "title": "Blood Pressure Diet",
+                "tip": "Prefer low-sodium meals — avoid pickles, processed foods, and added salt. Include potassium-rich foods like bananas, spinach, and sweet potato. Limit caffeinated beverages."
+            })
+            tips.append({
                 "title": "Blood Pressure Wellness",
-                "tip": "Opt for low-sodium meals, limit caffeinated beverages, and maintain a quiet, calm environment."
+                "tip": "Keep the environment calm and quiet. Avoid sudden physical exertion. Light walking after meals is beneficial."
             })
 
         if any("heart" in t for t in tags_lower):
             tips.append({
+                "title": "Cardiac Diet",
+                "tip": "Choose heart-friendly foods: oats, lentils, leafy greens, and fruits. Avoid saturated fats, fried foods, and excessive red meat. Small frequent meals are easier on the heart."
+            })
+            tips.append({
                 "title": "Cardiac Comfort",
-                "tip": "Keep activities gentle with no sudden strenuous exertion; pace walking and elevate feet when resting."
+                "tip": "Keep activities gentle with no sudden strenuous exertion. Pace walking and elevate feet when resting. Avoid very cold or very hot drinks."
             })
 
         if any("diabet" in t for t in tags_lower):
             tips.append({
+                "title": "Glucose & Diet",
+                "tip": "Follow consistent meal times — avoid skipping meals. Prefer whole grains, vegetables, and low-glycaemic foods. Limit fruit juices and sweets. Monitor energy levels and alertness after meals."
+            })
+            tips.append({
                 "title": "Glucose Routine",
-                "tip": "Follow consistent meal times, offer water between meals, and monitor alertness and energy levels."
+                "tip": "Offer water between meals rather than sugary beverages. Light evening walks can help with blood sugar regulation. Avoid large gaps between meals."
+            })
+
+        if not any("bp" in t or "hypertension" in t or "heart" in t or "diabet" in t for t in tags_lower):
+            # General elderly tip if no specific condition
+            tips.append({
+                "title": "General Elderly Diet",
+                "tip": "Include calcium-rich foods such as milk, yogurt, and paneer to support bone health. Soft-cooked vegetables and dal are easy to digest. Avoid very spicy or oily foods."
             })
 
         if current_vitals:
             temp = current_vitals.get("temperature")
             if temp and temp > 37.8:
                 tips.append({
-                    "title": "Elevated Temperature Care",
-                    "tip": "Offer additional fluids, keep the room well-ventilated, and use light breathable cotton clothing."
+                    "title": "Elevated Temperature Diet",
+                    "tip": "Offer extra fluids — coconut water, diluted fruit juice, or plain water. Light foods like khichdi or rice kanji are easier to digest. Avoid heavy or oily meals. Keep the room cool and ventilated."
                 })
 
         return tips
