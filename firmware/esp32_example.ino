@@ -1,5 +1,5 @@
 /*
- * CareBeat — ESP32 Reference Sketch
+ * SmartCare — ESP32 Reference Sketch
  * ===========================================================================
  * UNTESTED REFERENCE SKETCH. This file has NOT been compiled or run on
  * hardware. It exists to show the integration design is concrete: an ESP32
