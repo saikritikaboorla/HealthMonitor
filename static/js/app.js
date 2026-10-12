@@ -782,15 +782,32 @@ async function triggerAISummary() {
   const wrap  = document.getElementById('aiSummaryContent');
   const badge = document.getElementById('aiSourceBadge');
   if (wrap) wrap.innerHTML = `<em style="color:var(--text-muted);">Generating 24-hour summary via AI layer...</em>`;
+  if (badge) { badge.textContent = 'Requesting...'; badge.style.background = ''; }
   try {
     const res = await fetch(`/patients/${state.selectedPatientId}/summary`);
     if (res.ok) {
       const data = await res.json();
-      if (wrap)  wrap.innerHTML = `<div class="ai-text">${data.summary}</div>`;
-      if (badge) badge.textContent = data.source === 'gemini-api' ? `Gemini AI (${data.model})` : `Clinical Heuristics (Offline)`;
+      if (wrap) wrap.innerHTML = `<div class="ai-text">${data.summary}</div>`;
+      if (badge) {
+        if (data.source === 'groq-api') {
+          badge.textContent = `Groq AI (${data.model})`;
+          badge.style.background = 'linear-gradient(90deg,#f55036,#f97316)';
+          badge.style.color = '#fff';
+        } else if (data.source === 'gemini-api') {
+          badge.textContent = `Gemini AI (${data.model})`;
+          badge.style.background = 'linear-gradient(90deg,#4285f4,#34a853)';
+          badge.style.color = '#fff';
+        } else {
+          badge.textContent = 'Clinical Heuristics (Offline)';
+          badge.style.background = '';
+          badge.style.color = '';
+        }
+      }
+    } else {
+      if (wrap) wrap.innerHTML = `<em style="color:var(--danger);">Failed to generate summary (server error).</em>`;
     }
   } catch (e) {
-    if (wrap) wrap.innerHTML = `Failed to generate summary.`;
+    if (wrap) wrap.innerHTML = `<em style="color:var(--danger);">Failed to generate summary.</em>`;
   }
 }
 

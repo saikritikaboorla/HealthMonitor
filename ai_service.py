@@ -14,6 +14,12 @@ import logging
 from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional
 import httpx
+
+# Load .env.local first (local dev), then fall back to .env
+from dotenv import load_dotenv
+load_dotenv(dotenv_path=".env.local", override=False)
+load_dotenv(dotenv_path=".env", override=False)
+
 from database import get_db
 
 logger = logging.getLogger("carebeat.ai")
@@ -36,7 +42,7 @@ class AIService:
         )
         self.groq_model = (
             os.environ.get("GROQ_MODEL")
-            or self.config.get("GROQ_MODEL", "llama-3.1-8b-instant")
+            or self.config.get("GROQ_MODEL", "openai/gpt-oss-20b")
         )
         self.groq_base_url = "https://api.groq.com/openai/v1/chat/completions"
 

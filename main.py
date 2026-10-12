@@ -6,6 +6,11 @@ from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional
 from contextlib import asynccontextmanager
 
+# Load .env.local first (local dev), then fall back to .env
+from dotenv import load_dotenv
+load_dotenv(dotenv_path=".env.local", override=False)
+load_dotenv(dotenv_path=".env", override=False)
+
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse

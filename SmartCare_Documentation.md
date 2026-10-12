@@ -48,6 +48,7 @@
    - 8.1 [Health Score (0–100)](#81-health-score-0100)
    - 8.2 [Daily Care Tips](#82-daily-care-tips)
    - 8.3 [AI Layer & Deterministic Fallback Engine (Dual-Engine Architecture)](#83-ai-layer--deterministic-fallback-engine-dual-engine-architecture)
+   - 8.3a [Live LLM Integration — End-to-End Walkthrough](#83a-live-llm-integration--end-to-end-walkthrough)
    - 8.4 [Threshold Sandbox Preview](#84-threshold-sandbox-preview)
 9. [Datasets and Data Strategy](#9-datasets-and-data-strategy)
    - 9.1 [Role of Data](#91-role-of-data)
@@ -140,7 +141,7 @@ The prototype runs entirely on a standard laptop with zero required hardware. It
 | **Data Visualization** | **Chart.js via CDN** | Lightweight hardware-accelerated canvas charts for real-time sparklines, waveform trends, and threshold limit overlays. |
 | **Real-Time Communication** | **FastAPI WebSocket (`/ws`) + Cloud Polling Fallback** | Bi-directional channel streaming vitals every second and synchronizing alert states across dashboards, with sub-second polling fallback on serverless. |
 | **Emergency Alerts & Messaging** | **Simulated WhatsApp & SMS Mockup Panels** | Dedicated WhatsApp alerts channel with strict phone masking (`+91 9XXXXXX10`), interactive two-way messaging, Telegram Bot API adapter, and SMS panel. |
-| **Primary LLM (AI Tier 1)** | **Groq API — `llama-3.1-8b-instant`** | Primary AI engine for 24-hour caregiver briefings. OpenAI-compatible REST endpoint backed by Groq's custom LPU hardware for sub-second inference. Free tier available at [groq.com](https://groq.com). |
+| **Primary LLM (AI Tier 1)** | **Groq API — `openai/gpt-oss-20b`** | Primary AI engine for 24-hour caregiver briefings. OpenAI-compatible REST endpoint backed by Groq's custom LPU hardware for sub-second inference. Free tier available at [groq.com](https://groq.com). |
 | **Secondary LLM (AI Tier 2)** | **Google Gemini API — `gemini-1.5-flash`** | Secondary AI fallback for summaries if Groq key is unavailable or the call fails. Google Generative AI REST API. |
 | **AI Fallback Engine (Tier 3)** | **CareBeat Local Clinical Heuristics v1.2** | 100% offline rule-based statistical summarizer in `ai_service.py`. Guarantees a response with zero latency when both external LLMs are unavailable. |
 | **HTTP Client (AI calls)** | **httpx (async)** | Async HTTP client used for both Groq and Gemini API calls with a 10-second timeout and graceful degradation to the next tier. |
@@ -444,7 +445,7 @@ SmartCare's AI layer (`ai_service.py`) uses a **three-tier resolution chain** to
                           v
             ┌─────────────────────────┐
             │  Tier 1: Groq API       │  ← Primary LLM
-            │  llama-3.1-8b-instant   │    Ultra-fast LPU inference
+            │  openai/gpt-oss-20b   │    Ultra-fast LPU inference
             │  (OpenAI-compatible)    │    Free tier available
             └────────────┬────────────┘
                          │ Key missing or call fails
@@ -473,17 +474,17 @@ SmartCare's AI layer (`ai_service.py`) uses a **three-tier resolution chain** to
 
 #### Tier 1: Groq API (Primary LLM)
 
-[Groq](https://groq.com) provides an OpenAI-compatible REST API backed by custom LPU (Language Processing Unit) hardware, delivering sub-second inference. The `llama-3.1-8b-instant` model is available on Groq's free tier.
+[Groq](https://groq.com) provides an OpenAI-compatible REST API backed by custom LPU (Language Processing Unit) hardware, delivering sub-second inference. The `openai/gpt-oss-20b` model is available on Groq's free tier.
 
 - **Endpoint:** `POST https://api.groq.com/openai/v1/chat/completions`
 - **Format:** OpenAI-compatible `messages` array with `system` + `user` roles
-- **Default model:** `llama-3.1-8b-instant` (configurable via `GROQ_MODEL` in `config.json`)
+- **Default model:** `openai/gpt-oss-20b` (configurable via `GROQ_MODEL` in `config.json`)
 - **Timeout:** 10 seconds; on failure, cascades to Tier 2
 
 ```python
 # ai_service.py — Groq API call
 payload = {
-    "model": "llama-3.1-8b-instant",
+    "model": "openai/gpt-oss-20b",
     "messages": [
         {"role": "system", "content": "<strict non-diagnostic system prompt>"},
         {"role": "user",   "content": "<24h patient vitals context>"}
@@ -528,11 +529,111 @@ All three tiers enforce the same safety boundary via system prompts and code des
 | Config key | Default | Description |
 |---|---|---|
 | `GROQ_API_KEY` | `""` | Groq Cloud API key. Free tier at [console.groq.com](https://console.groq.com). |
-| `GROQ_MODEL` | `llama-3.1-8b-instant` | Groq model. Alternatives: `mixtral-8x7b-32768`, `llama3-70b-8192`. |
+| `GROQ_MODEL` | `openai/gpt-oss-20b` | Groq model. Alternatives: `openai/gpt-oss-120b`, `qwen/qwen3.8-27b`. |
 | `GEMINI_API_KEY` | `""` | Google Gemini API key. Used only if Groq is unavailable. |
 | `GEMINI_MODEL` | `gemini-1.5-flash` | Gemini model ID. |
 
 If neither `GROQ_API_KEY` nor `GEMINI_API_KEY` is set, the system runs entirely on the local heuristics engine with no configuration required and no degradation in core functionality.
+
+### 8.3a Live LLM Integration — End-to-End Walkthrough
+
+This section documents exactly what happens in the live website when a real Groq API key is configured and a caregiver clicks "Generate Summary".
+
+#### What the user sees in the caregiver dashboard
+
+1. Log in as a caregiver and select a patient. Navigate to the **AI Insights & Thresholds** tab.
+2. Click **"Generate Summary"** in the "24-Hour AI Health Briefing" card.
+3. The UI displays: *"Generating 24-hour summary via AI layer..."*
+4. Within 1–2 seconds, the briefing appears — 2–3 plain-language sentences covering vitals trends, alert counts, and medication adherence for the last 24 hours.
+5. The **AI Source Badge** updates to reflect which tier responded:
+
+| Badge colour | Text | Meaning |
+|---|---|---|
+| 🟠 Orange gradient | `Groq AI (openai/gpt-oss-20b)` | Tier 1 live API responded successfully |
+| 🔵 Blue/green gradient | `Gemini AI (gemini-1.5-flash)` | Tier 2 Gemini fallback used |
+| ⚪ Default grey | `Clinical Heuristics (Offline)` | No API keys — Tier 3 local engine used |
+
+#### How the GROQ_API_KEY reaches the backend
+
+Keys are loaded at server startup in priority order:
+
+```
+1. .env.local    ← GROQ_API_KEY=gsk_...   (local development, never committed)
+2. config.json   ← "GROQ_API_KEY": "gsk_..."  (Vercel environment / alternative)
+```
+
+Both `main.py` and `ai_service.py` call `load_dotenv` at module import time:
+
+```python
+from dotenv import load_dotenv
+load_dotenv(dotenv_path=".env.local", override=False)  # picks up local dev key
+load_dotenv(dotenv_path=".env",       override=False)  # production fallback
+```
+
+`ai_service.py` then reads the key with `os.environ.get("GROQ_API_KEY")`, falling back to `config.json` if the env var is not set.
+
+#### Backend resolution chain for GET /patients/{id}/summary
+
+```
+Browser  →  GET /patients/p1/summary
+                    │
+            [FastAPI — main.py]
+                    │
+            [ai_service.generate_patient_summary("p1")]
+                    │
+        ┌───────────┴───────────┐
+        │  SQLite (carebeat.db)  │  ← last 24h: measurements, alerts, medicine_logs
+        └───────────┬───────────┘
+                    │ computes avg/min/max HR, Temp, SpO₂; counts alerts + missed meds
+                    │
+        [Tier 1] GROQ_API_KEY present?
+                YES  →  POST https://api.groq.com/openai/v1/chat/completions
+                         model: openai/gpt-oss-20b
+                         temperature: 0.2, max_tokens: 220
+                         ← { source: "groq-api", summary: "..." }
+                         STOP
+                │
+        [Tier 2] Key missing or call failed?
+                GEMINI_API_KEY present?
+                YES  →  POST https://generativelanguage.googleapis.com/...
+                         ← { source: "gemini-api", summary: "..." }
+                         STOP
+                │
+        [Tier 3] Both unavailable?
+                →  _generate_local_heuristic_summary()
+                   ← { source: "local-rule-engine", summary: "..." }
+```
+
+The response JSON always contains: `patient_id`, `summary`, `source`, `model`, `timestamp`, `disclaimer`.
+
+#### Frontend badge logic (app.js)
+
+```js
+if (data.source === 'groq-api') {
+    badge.textContent = `Groq AI (${data.model})`;
+    badge.style.background = 'linear-gradient(90deg,#f55036,#f97316)';
+} else if (data.source === 'gemini-api') {
+    badge.textContent = `Gemini AI (${data.model})`;
+    badge.style.background = 'linear-gradient(90deg,#4285f4,#34a853)';
+} else {
+    badge.textContent = 'Clinical Heuristics (Offline)';
+}
+```
+
+#### Setting up Groq for local development
+
+```bash
+# 1. Get a free key at https://console.groq.com
+# 2. Create .env.local (already in .gitignore)
+echo 'GROQ_API_KEY=gsk_your_key_here' >> .env.local
+
+# 3. Start the server — dotenv loads the key automatically
+uvicorn main:app --reload
+```
+
+No other configuration is needed. `.env.local` is already in `.gitignore`.
+
+
 
 ### 8.4 Threshold Sandbox Preview
 
