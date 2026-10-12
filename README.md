@@ -27,7 +27,7 @@ Track 3 — Affordable Health Tech
 
 ## 1. What it does
 
-CareBeat connects five things in one workflow for elderly and high-needs patient monitoring:
+SmartCare connects five things in one workflow for elderly and high-needs patient monitoring:
 
 - **Vital-sign monitoring** — heart rate (BPM), body temperature (°C), SpO₂ (%), and blood pressure (mmHg). Readings come from a dynamic simulator by default, or optionally from a replayed public dataset.
 - **Configurable threshold alerts** — per-patient condition profiles (heart patient, diabetic, high BP, or custom). All limits are editable live. A value must stay outside the limit for N consecutive seconds before an alert fires, preventing false alarms.
