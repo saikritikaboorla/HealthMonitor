@@ -99,7 +99,7 @@ SmartCare is an affordable, software-first platform that connects five things in
 2. **Alert generation & false-alarm suppression** — configurable threshold profiles per patient condition, trend checks, false-alarm persistence filtering, and SOS emergency pipeline.
 3. **Dual login dashboards** — distinct user dashboards tailored for either the **Patient** (large SOS button, daily check-in, calm simplified vitals, and medication checklists) or the **Caregiver** (multi-patient telemetry, live sparklines, alert queue with Acknowledge/Resolve notes, care-task checklists, and shift handover notes).
 4. **Caregiver coordination & family connectivity** — a structured caregiver module with assignment, shifts, care tasks, handover notes, mandatory family contact registration, direct alerts on Critical/SOS, masked numbers, and a family read-only view.
-5. **Emergency escalation & AI insights** — Telegram + simulated SMS to caregiver and family simultaneously on Critical alerts, with automatic escalation to secondary contacts if unacknowledged, plus a dual-engine AI summarizer backed by a local deterministic heuristic fallback.
+5. **Emergency escalation & AI insights** — Telegram + simulated SMS to caregiver and family simultaneously on Critical alerts, with automatic escalation to secondary contacts if unacknowledged, plus a three-tier AI summarizer (Groq → Gemini → local heuristics) backed by a guaranteed offline fallback.
 
 The prototype runs entirely on a standard laptop with zero required hardware. Its architecture is designed so that an ESP32 device with real sensors can be added later without redesigning the backend or ingestion pipelines.
 
@@ -116,8 +116,8 @@ The prototype runs entirely on a standard laptop with zero required hardware. It
 9. Demonstrate Telegram notifications, acknowledgment timeouts, and escalation to a second family contact.
 10. Support medicine reminders with Taken/Missed tracking and auditory voice prompts.
 11. Show a Health Score (0–100) per patient with complete formula transparency.
-12. Integrate an AI Layer (Google Gemini) for 24-hour plain-language summaries and care tips with strict non-diagnostic guardrails.
-13. Integrate an offline Deterministic Fallback Layer ensuring zero crashes and zero latency when AI is unavailable.
+12. Integrate an AI Layer (three-tier: Groq API primary → Google Gemini secondary → local heuristics fallback) for 24-hour plain-language summaries and care tips with strict non-diagnostic guardrails.
+13. Integrate an offline Deterministic Fallback Layer (CareBeat Clinical Heuristics v1.2) ensuring zero crashes and zero latency when both external AI APIs are unavailable.
 14. Provide a Caregiver Module with profile, verification (mocked), fee negotiation (mocked), and max-2 patient cohort assignment.
 15. Provide dedicated Simulated WhatsApp Emergency Broadcast & Caregiver communication with masked phone numbers (`+91 9XXXXXX10`).
 16. Keep a full append-only audit trail of readings, alerts, notifications, contact changes, and caregiver actions.
@@ -139,13 +139,15 @@ The prototype runs entirely on a standard laptop with zero required hardware. It
 | **Frontend Architecture** | **Plain HTML5 / CSS3 / Vanilla JS (ES6+)** | Clean, responsive single-page application. Zero build step (no npm/Node.js required), runs natively in modern web browsers. |
 | **Data Visualization** | **Chart.js via CDN** | Lightweight hardware-accelerated canvas charts for real-time sparklines, waveform trends, and threshold limit overlays. |
 | **Real-Time Communication** | **FastAPI WebSocket (`/ws`) + Cloud Polling Fallback** | Bi-directional channel streaming vitals every second and synchronizing alert states across dashboards, with sub-second polling fallback on serverless. |
-| **Emergency Alerts & Messaging** | **Simulated WhatsApp & SMS Mockup Panels** | Dedicated WhatsApp alerts channel with strict phone masking with X's (`+91 9XXXXXX10`), interactive two-way communication, Telegram Bot API adapter, and SMS panel. |
-| **AI Intelligence Layer** | **Google Gemini API (`gemini-1.5-flash`)** | Generates non-diagnostic 24-hour plain-language summaries, contextual caregiver advice, and explainable alert notes. |
-| **Deterministic Fallback Layer** | **CareBeat Clinical Heuristics Engine** | Local, rule-based algorithmic engine in `ai_service.py` providing 100% offline fallback summaries when external AI is unavailable. |
+| **Emergency Alerts & Messaging** | **Simulated WhatsApp & SMS Mockup Panels** | Dedicated WhatsApp alerts channel with strict phone masking (`+91 9XXXXXX10`), interactive two-way messaging, Telegram Bot API adapter, and SMS panel. |
+| **Primary LLM (AI Tier 1)** | **Groq API — `llama-3.1-8b-instant`** | Primary AI engine for 24-hour caregiver briefings. OpenAI-compatible REST endpoint backed by Groq's custom LPU hardware for sub-second inference. Free tier available at [groq.com](https://groq.com). |
+| **Secondary LLM (AI Tier 2)** | **Google Gemini API — `gemini-1.5-flash`** | Secondary AI fallback for summaries if Groq key is unavailable or the call fails. Google Generative AI REST API. |
+| **AI Fallback Engine (Tier 3)** | **CareBeat Local Clinical Heuristics v1.2** | 100% offline rule-based statistical summarizer in `ai_service.py`. Guarantees a response with zero latency when both external LLMs are unavailable. |
+| **HTTP Client (AI calls)** | **httpx (async)** | Async HTTP client used for both Groq and Gemini API calls with a 10-second timeout and graceful degradation to the next tier. |
 | **Simulation and Replay** | **Python (`random`, `math`, `csv`)** | Built-in Gaussian drift generator (`simulator.py`) and Kaggle dataset replayer (60,000 records) with instant anomaly triggers. |
 | **IoT & Hardware Ingestion** | **HTTP REST / JSON (`POST /measurements`)** | Device-independent schema compatible with ESP32 Wi-Fi microcontrollers, dynamic simulators, and dataset replayers. |
 | **Auditory & Voice Alerts** | **Browser SpeechSynthesis API** | Spoken vital readouts ("Read Vitals Aloud"), audible emergency sirens, and scheduled medication reminders. |
-| **Configuration** | **`config.json` / Environment Variables** | All secrets, tokens, and configurable threshold defaults isolated from source code. |
+| **Configuration** | **`config.json` / Environment Variables** | All secrets, API keys, and configurable threshold defaults isolated from source code. |
 
 **Why this stack:** Zero runtime cost, zero build step, deploys to any cloud platform in seconds, exceptionally easy to demo and evaluate. The Python FastAPI backend handles business rules and telemetry ingestion; the browser frontend is delivered seamlessly from the same origin.
 
@@ -162,8 +164,8 @@ The prototype runs entirely on a standard laptop with zero required hardware. It
                                                |
         +-------------------+------------------+-------------------+
         |                   |                  |                   |
-   Sanity & Range     False-Alarm        Threshold Rules     AI Summarizer +
-   Quarantine Filter  Window (5s)        & Escalation Engine Deterministic Fallback
+   Sanity & Range     False-Alarm        Threshold Rules     AI Summarizer
+   Quarantine Filter  Window (5s)        & Escalation Engine (Groq→Gemini→Heuristics)
         |                   |                  |                   |
         +-------------------+------------------+-------------------+
                                                |
@@ -172,9 +174,10 @@ The prototype runs entirely on a standard laptop with zero required hardware. It
                    +---------------------------+---------------------------+
                    |                                                       |
         [Patient Dashboard]                                     [Caregiver Dashboard]
-        • Large SOS Panic Button                                • Multi-Patient Telemetry
+        • Large SOS Panic Button                                • Dedicated Patient Telemetry
         • "I'm OK" Check-in                                     • Live Charts & Alerts
-        • Simple Vitals & Meds                                  • Tasks & Handover Notes
+        • Simple Vitals & Meds                                  • AI Insights & Threshold Sandbox
+                                                                • Tasks & Handover Notes
 ```
 
 ### 3.1 Data Input Layer
@@ -246,7 +249,7 @@ A single `static/index.html` served by FastAPI. Two primary specialized dashboar
 10. **Escalation:** if unacknowledged within N seconds (default 120), second family contact notified, alert labelled "Escalated".
 11. **Resolution:** caregiver marks resolved with care notes, history preserved.
 12. **Medicine reminders:** fire at scheduled times; Taken/Missed tracked; family notified if missed >30 min.
-13. **AI / Fallback summary:** Generates 24h summary via Gemini API, or instantly falls back to local heuristic rule engine if offline.
+13. **AI / Fallback summary:** Generates 24h summary via Groq API (primary) → Gemini API (secondary) → local heuristic rule engine (final fallback). Always returns a non-diagnostic response regardless of API availability.
 14. **Review:** Metrics page shows latency, alert counts, medicine adherence, uptime.
 
 ### 4.2 Alert States
@@ -431,37 +434,105 @@ A "Daily care tips" card per patient generated from condition tags and current v
 
 Rules: no calorie targets, no medicine or dosage advice. Every tips card carries: **"General wellness suggestions only, not medical or dietary advice."**
 
-### 8.3 AI Layer & Deterministic Fallback Engine (Dual-Engine Architecture)
+### 8.3 AI Layer — Three-Tier LLM Architecture
 
-SmartCare provides a dual-engine architecture combining generative AI summaries with an autonomous local rule-based heuristic engine:
+SmartCare's AI layer (`ai_service.py`) uses a **three-tier resolution chain** to guarantee a summary is always generated — whether or not external API keys are configured. The chain resolves top-to-bottom and stops at the first successful response.
 
 ```
-[24h Patient Telemetry, Alerts & Medication Logs]
-                       |
-                       v
-            Is GEMINI_API_KEY Available?
-                 /             \
-               YES              NO (or 429 / Network Error / Timeout > 5s)
-                |                                  |
-                v                                  v
-   [AI Layer: Google Gemini API]        [Deterministic Fallback Layer]
-   • gemini-1.5-flash model             • CareBeat Clinical Heuristics Engine
-   • 2–3 sentence plain summary         • Local statistical mean/min/max
-   • Contextual wellness tips           • Template-based daily summary
-   • Non-diagnostic guardrails          • 100% offline, 0ms external latency
+[24-Hour Patient Telemetry + Alert Logs + Medicine Adherence]
+                          |
+                          v
+            ┌─────────────────────────┐
+            │  Tier 1: Groq API       │  ← Primary LLM
+            │  llama-3.1-8b-instant   │    Ultra-fast LPU inference
+            │  (OpenAI-compatible)    │    Free tier available
+            └────────────┬────────────┘
+                         │ Key missing or call fails
+                         v
+            ┌─────────────────────────┐
+            │  Tier 2: Gemini API     │  ← Secondary LLM
+            │  gemini-1.5-flash       │    Google Generative AI
+            └────────────┬────────────┘
+                         │ Key missing or call fails
+                         v
+            ┌─────────────────────────┐
+            │  Tier 3: Local Engine   │  ← Final Fallback
+            │  CareBeat Heuristics    │    100% offline
+            │  v1.2                   │    Zero latency, always runs
+            └─────────────────────────┘
 ```
 
-#### The AI Layer (Google Gemini)
-- Implemented in `ai_service.py` via `httpx` async client calling the Gemini REST API.
-- Generates 2–3 sentence daily plain-language summaries of vitals trends and alert activity.
-- Generates contextual non-prescriptive caregiver advice based on patient conditions.
-- **Strict Medical Guardrails:** System prompts prohibit declaring medical diagnoses, disease predictions, drug prescriptions, or dosage changes. The AI must speak only in terms of observed readings and configured threshold compliance.
+#### Where AI is used in the product
 
-#### The Deterministic Fallback Layer
-- If the Gemini API key is missing, network access is down, API rate limits are hit (HTTP 429), or an API call times out (>5 seconds), the system **automatically and instantly degrades to the internal Local Rule-Based Engine**.
-- Aggregates min, max, and average bounds for heart rate, temperature, and SpO2 directly from SQLite records.
-- Outputs structured plain-language summaries using deterministic templates (e.g., *"Heart rate averaged 75 BPM and remained comfortably within configured target limits. Oxygen saturation maintained strong levels averaging 97%."*).
-- **Safety Invariant:** **Life-critical alert decisions, threshold evaluations, false-alarm suppressions, siren activations, and emergency notifications NEVER depend on or pass through the AI layer.** Emergency alerting is 100% deterministic and hardcoded.
+| Feature | Location in UI | AI involvement |
+|---|---|---|
+| **24-Hour Health Briefing** | Caregiver Dashboard → AI Insights tab | Groq/Gemini generates 2–3 sentence plain-language summary of vitals, alerts, and medicine adherence over the past 24 hours |
+| **Daily Caregiver Tips** | Caregiver Dashboard → AI Insights tab | Local heuristic engine generates condition-aware wellness suggestions (cardiac, hypertension, diabetic profiles) — no external API call |
+| **Threshold Sandbox Analysis** | Caregiver Dashboard → AI Insights tab | Deterministic local engine computes historical breach impact when thresholds are modified |
+| **Emergency Alert Generation** | All views (siren banner, alert queue) | **AI is never involved** — all alerts are 100% deterministic threshold rules |
+
+#### Tier 1: Groq API (Primary LLM)
+
+[Groq](https://groq.com) provides an OpenAI-compatible REST API backed by custom LPU (Language Processing Unit) hardware, delivering sub-second inference. The `llama-3.1-8b-instant` model is available on Groq's free tier.
+
+- **Endpoint:** `POST https://api.groq.com/openai/v1/chat/completions`
+- **Format:** OpenAI-compatible `messages` array with `system` + `user` roles
+- **Default model:** `llama-3.1-8b-instant` (configurable via `GROQ_MODEL` in `config.json`)
+- **Timeout:** 10 seconds; on failure, cascades to Tier 2
+
+```python
+# ai_service.py — Groq API call
+payload = {
+    "model": "llama-3.1-8b-instant",
+    "messages": [
+        {"role": "system", "content": "<strict non-diagnostic system prompt>"},
+        {"role": "user",   "content": "<24h patient vitals context>"}
+    ],
+    "temperature": 0.2,
+    "max_tokens": 220
+}
+headers = {"Authorization": f"Bearer {GROQ_API_KEY}"}
+resp = await client.post("https://api.groq.com/openai/v1/chat/completions",
+                         json=payload, headers=headers)
+```
+
+#### Tier 2: Google Gemini API (Secondary LLM)
+
+Called only if the Groq key is missing or the Groq call fails. Uses the `gemini-1.5-flash` model via the Google Generative Language REST API.
+
+- **Endpoint:** `POST https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=...`
+- **Format:** Gemini `contents` / `parts` structure
+- **Timeout:** 10 seconds; on failure, cascades to Tier 3
+
+#### Tier 3: CareBeat Local Clinical Heuristics v1.2 (Final Fallback)
+
+Always-on rule engine — never fails, no network call, zero latency. Aggregates min/max/average statistics directly from SQLite and composes a structured plain-language summary from deterministic templates.
+
+Example output: *"Heart rate averaged 75 BPM and remained within configured limits. Oxygen saturation maintained strong levels averaging 97%. No critical threshold breaches were detected during the monitored period."*
+
+#### Strict Non-Diagnostic Guardrails
+
+All three tiers enforce the same safety boundary via system prompts and code design:
+- ✅ Generates concise plain-language 24-hour caregiver briefings
+- ✅ Provides contextual wellness suggestions tailored to patient condition profiles
+- ✅ Degrades gracefully through three tiers — always returns a response
+- ❌ Does **not** diagnose disease, suggest treatments, or recommend dosages
+- ❌ Does **not** generate or influence life-critical alerts — those are hardcoded rules
+
+#### Safety Invariant
+
+> **Life-critical alert generation, threshold evaluation, false-alarm suppression, siren activation, and emergency notifications NEVER depend on AI.** The entire alert engine, escalation logic, and SOS pipeline are deterministic and run without any external API dependency.
+
+#### Configuration
+
+| Config key | Default | Description |
+|---|---|---|
+| `GROQ_API_KEY` | `""` | Groq Cloud API key. Free tier at [console.groq.com](https://console.groq.com). |
+| `GROQ_MODEL` | `llama-3.1-8b-instant` | Groq model. Alternatives: `mixtral-8x7b-32768`, `llama3-70b-8192`. |
+| `GEMINI_API_KEY` | `""` | Google Gemini API key. Used only if Groq is unavailable. |
+| `GEMINI_MODEL` | `gemini-1.5-flash` | Gemini model ID. |
+
+If neither `GROQ_API_KEY` nor `GEMINI_API_KEY` is set, the system runs entirely on the local heuristics engine with no configuration required and no degradation in core functionality.
 
 ### 8.4 Threshold Sandbox Preview
 
@@ -683,7 +754,7 @@ All alert, notification, and audit records are append-only. Resolving an alert u
 | Endpoint | Purpose |
 |---|---|
 | `GET /patients/{id}/health-score` | Current Health Score with breakdown |
-| `GET /patients/{id}/summary` | 24h summary (Gemini AI with local heuristic fallback) |
+| `GET /patients/{id}/summary` | 24h summary (Groq API → Gemini API → local heuristic fallback) |
 | `GET /patients/{id}/tips` | Daily care wellness tips |
 | `GET /notifications/history` | Notification audit (alert latency, channels) |
 | `GET /audit` | Audit records (admin only) |
@@ -770,10 +841,11 @@ Every screen shows a permanent top banner:
 
 ### 14.2 Caregiver Dashboard (Clinical-Telemetry UI)
 
-Tailored to nursing staff, home aides, and caregivers managing one or more patients:
-- **Multi-Patient Telemetry Cards:** Live HR, Temp, SpO2, status colour (green/yellow/red), condition tags, and Health Score per patient.
+Tailored to nursing staff, home aides, and caregivers. The dashboard locks to a single patient per login session — to switch patients, the caregiver signs out and logs back in:
+- **Dedicated Single-Patient Session:** Dashboard locks to the patient selected at login. No in-session patient switching — ensures focused, undivided attention per patient.
 - **Real-Time Sparklines & Charts:** Interactive Chart.js graph tracking the latest 60 readings with configured threshold boundary overlays.
-- **Actionable Alert Queue:** Active alerts with exact breach value, plain explanation, **Acknowledge** button (mutes siren banner), and **Resolve** action with care notes.
+- **Actionable Alert Queue:** Active alerts with exact breach value, plain explanation, **Acknowledge** button (mutes siren banner), and **Resolve** action with mandatory care notes.
+- **AI Insights Tab:** On-demand 24-hour health briefings powered by the three-tier LLM chain (Groq → Gemini → Local Heuristics). Includes a source badge showing which tier generated the summary.
 - **Threshold Sandbox & Custom Profiles:** Live threshold editor with client-side sandbox validation that runs against stored reading history before saving.
 - **Care-Task Checklist:** Actionable daily care routines (vitals check, meds, meals, mobility walk) with due times and overdue badges.
 - **Shift Handover Notes & Care Logs:** Structured handover records (condition on arrival, tasks completed, concerns) visible to the incoming shift caregiver.
@@ -812,7 +884,7 @@ Tailored specifically to seniors or individuals needing care with minimal cognit
 - **Role-based access:** Patient sees only their own screen; Caregiver sees only assigned patients; Family sees only their patient (read-only); Admin sees all.
 - **Consent recorded:** patient/family consent checkbox is mandatory at registration; timestamp stored.
 - **Masked phone numbers:** displayed as `+91 98XXXXXX21` everywhere. Raw number stored in the database and used only for sending notifications.
-- **No secrets in code:** Telegram token, Gemini key, Twilio credentials in `config.json` / environment variables only.
+- **No secrets in code:** Telegram token, Groq API key, Gemini API key, and Twilio credentials stored in `config.json` / environment variables only. Never hardcoded.
 - **Audit log:** every contact change, notification attempt, login, and threshold change is recorded with actor and timestamp.
 - **Document visibility:** caregiver verification documents visible only to admin.
 - **Non-diagnostic rule:** `Predicted Disease` from the dataset is never exposed on any user-facing screen. Condition tags are set only by the family/admin during registration.
@@ -867,7 +939,7 @@ A test script (`eval_test.py`) replays a fixed 5-minute scenario and prints thes
 | Admin verifies caregiver | Status changes to Verified |
 | Fee negotiation: Agreed | Assignment enabled |
 | Threshold sandbox preview | Alert count matches re-run on stored history |
-| Gemini API unavailable / offline | Seamless fallback to local heuristic engine summary |
+| Groq and Gemini APIs unavailable / offline | Seamless fallback to local heuristic engine summary; source badge shows "Local Heuristics" |
 
 ---
 
@@ -904,7 +976,7 @@ A test script (`eval_test.py`) replays a fixed 5-minute scenario and prints thes
 - Caregiver page: assigned patients, care tasks, care log, handover notes.
 - Daily care tips (condition + vitals based).
 - Health Score calculation and tooltip.
-- AI layer (Gemini summary) with deterministic local heuristic fallback.
+- AI layer (Groq API primary → Gemini secondary → local heuristics fallback) with strict non-diagnostic guardrails.
 - Threshold sandbox preview.
 - Evaluation/Metrics page.
 
@@ -926,7 +998,7 @@ A test script (`eval_test.py`) replays a fixed 5-minute scenario and prints thes
 - Caregiver verification is a manual admin review — not connected to any police, government, or background-check database.
 - Fee negotiation is a status tracker only — no payment processing.
 - Phone verification is simulated — no real OTP or SMS gateway.
-- Gemini summary is optional — a rule-based fallback always runs if no API key is set or on network failure.
+- Groq and Gemini summaries are optional — the local heuristics rule engine always runs as final fallback if no API keys are set or on any network/API failure. No configuration is required to run the app.
 - Language support (Telugu/Hindi) is future scope — English only in the prototype.
 - Dataset rows are replayed for demo purposes only. They represent a different population and are not a patient's personal health history.
 - Threshold values are demonstration defaults, not universal medical limits.
@@ -942,7 +1014,7 @@ A test script (`eval_test.py`) replays a fixed 5-minute scenario and prints thes
 3. Dataset replayer — optional secondary source with configurable column mapping via `config.json`.
 4. `main.py` — FastAPI backend, WebSocket server, alert engine.
 5. `database.py` — SQLite schema and queries.
-6. `ai_service.py` — Gemini AI summarizer with deterministic local heuristic rule engine.
+6. `ai_service.py` — Three-tier AI summarizer: Groq API (primary) → Gemini API (secondary) → CareBeat Local Clinical Heuristics v1.2 (final fallback). Strictly non-diagnostic.
 7. `static/index.html` — full single-page dashboard with two specialized dashboards (Caregiver vs. Patient) and family/admin views.
 8. `seed.py` — creates 4 demo patients, 2 caregivers, 1 admin, family contacts, medicines.
 9. `eval_test.py` — 5-minute simulator run (fixed seed) with metrics printout.
@@ -967,7 +1039,7 @@ A test script (`eval_test.py`) replays a fixed 5-minute scenario and prints thes
 - **False-alarm filter:** prevents alert fatigue; sensor errors never fire alerts.
 - **Data quality awareness:** Low Signal badge; stale data shown as "No recent data", never as normal.
 - **Medicine adherence tracking:** Taken/Missed with caregiver override and family visibility.
-- **Dual-Engine AI & Offline Fallback:** Gemini AI summarization with an autonomous local heuristic rule engine ensuring zero failures.
+- **Three-Tier AI & Guaranteed Offline Fallback:** Groq API (primary, ultra-fast LPU inference) → Google Gemini API (secondary) → CareBeat Local Clinical Heuristics Engine (always-on). Always returns a non-diagnostic caregiver summary regardless of API availability.
 - **Dynamic simulator as default:** generates different, realistic readings every run without needing any files — no CSV required to start the app.
 - **Instant demo triggers:** `/trigger/tachycardia`, `/trigger/fever`, `/trigger/low_spo2` fire anomalies on demand, guaranteeing a live alert within 5 seconds for any judge demo.
 - **Zero-cost, zero-hardware demo:** runs on a laptop, simulates the full elderly care workflow end to end.

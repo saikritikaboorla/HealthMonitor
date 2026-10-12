@@ -81,13 +81,13 @@
 
       <!-- Patient picker — revealed on card click -->
       <div class="login-patient-picker" id="patientPicker-caregiver">
-        <div class="login-picker-label">Select Patient Dashboard (Max 2 per shift):</div>
+        <div class="login-picker-label">Select Patient Dashboard:</div>
         <div class="login-picker-btns">
           <button class="login-picker-btn caregiver-picker-btn" onclick="doLoginWithPatient(event,'caregiver','p1')">Patient 1<span>Heart Care</span></button>
           <button class="login-picker-btn caregiver-picker-btn" onclick="doLoginWithPatient(event,'caregiver','p2')">Patient 2<span>High BP</span></button>
         </div>
         <div style="font-size:0.73rem;color:rgba(255,255,255,0.65);margin-top:6px;text-align:center;">
-          🔒 Priya Nair's active morning cohort: <strong>Max 2 patients</strong> (Patient 1 &amp; Patient 2)
+          🔒 Priya Nair's morning shift — dashboard locks to your selected patient
         </div>
       </div>
 
@@ -414,26 +414,19 @@
             <div class="cg-name-row">
               <span class="cg-name">Priya Nair</span>
               <span class="cg-status-badge">✓ Active Shift: Morning</span>
-              <span class="stream-pill" style="background:#EEF2FF;color:#4338CA;border-color:#C7D2FE;">Max 2 Assigned Patients</span>
+              <span class="stream-pill" style="background:#ECFDF5;color:#065F46;border-color:#A7F3D0;" id="caregiverActiveSessionPill">🔒 Active Focus: Patient 1</span>
               <span id="caregiverActiveStreamBadge" class="stream-pill">Live Math Simulator</span>
             </div>
             <div class="cg-sub">
-              Caregiver Telemetry Center • Active Patient Focused: <strong id="caregiverActivePatientLabel" style="color:var(--ink);">Patient 1 (Demo Patient A)</strong>
+              Clinical Telemetry Center • Dedicated Patient: <strong id="caregiverActivePatientLabel" style="color:var(--ink);">Patient 1 (Demo Patient A)</strong>
             </div>
           </div>
         </div>
 
         <div class="cg-actions-row">
-          <div class="cg-patient-switcher-group">
-            <span style="font-size:0.78rem;font-weight:700;color:var(--ink-mid);">Switch Patient:</span>
-            <div id="caregiverPatientTabBtns" class="cg-dual-patient-btns">
-              <button class="cg-patient-btn active" id="cgBtn-p1" onclick="selectCaregiverPatient('p1')">
-                <span class="dot-live"></span> Patient 1 <small>(Demo Patient A)</small>
-              </button>
-              <button class="cg-patient-btn" id="cgBtn-p2" onclick="selectCaregiverPatient('p2')">
-                <span class="dot-live"></span> Patient 2 <small>(Demo Patient B)</small>
-              </button>
-            </div>
+          <div class="cg-patient-switcher-group" style="padding:6px 14px;">
+            <span style="font-size:0.78rem;color:var(--text-muted);">To switch patient:</span>
+            <button class="btn-sm btn-logout" style="padding:4px 10px;font-size:0.75rem;" onclick="doLogout()">Sign Out &amp; Choose Other Patient</button>
           </div>
 
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
@@ -479,11 +472,11 @@
           <!-- Multi-Patient Telemetry Cards Grid -->
           <div class="section-title-bar">
             <div>
-              <h3>Assigned Patient Telemetry &amp; Clinical Dashboards (Max 2 Patients)</h3>
-              <p style="font-size:0.82rem;color:var(--text-muted);">Real-time continuous 1-second vital telemetry. Both assigned patients are separated and neatly structured below.</p>
+              <h3>Assigned Patient Telemetry &amp; Clinical Dashboard</h3>
+              <p style="font-size:0.82rem;color:var(--text-muted);">Real-time continuous 1-second vital telemetry for your assigned patient this shift.</p>
             </div>
             <div style="font-size:0.75rem;background:var(--surface-2);border:1px solid var(--border-strong);padding:5px 12px;border-radius:var(--r-full);color:var(--brand-dark);font-weight:700;">
-              🛡️ Caregiver Capacity: 2 of 2 Max Patients Active
+              🔒 Dedicated Patient Session Active
             </div>
           </div>
           <div id="patientCardsGrid" class="patient-cards-grid"></div>

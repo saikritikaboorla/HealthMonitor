@@ -23,7 +23,7 @@ const state = {
   activeCommDevice: 'whatsapp', // 'whatsapp' or 'sms'
   loggedInUser: null,        // { role, name }
   selectedPatientId: 'p1',
-  caregiverAssignedPatients: ['p1', 'p2'], // Strict limit: max 2 patients assigned per caregiver
+  caregiverAssignedPatients: ['p1', 'p2'], // Caregiver sees one patient per session; both selectable at login
   patients: [],
   alerts: [],
   whatsappInbox: [],
@@ -500,94 +500,82 @@ function renderPatientCards() {
   const container = document.getElementById('patientCardsGrid');
   if (!container) return;
 
-  // Filter to caregiver's assigned cohort: max 2 patients
-  // If caregiver has selected another patient (e.g. p3 or p4), dynamically include that patient so they can view any patient separately
-  let displayPatients = state.patients.filter(p => state.caregiverAssignedPatients.includes(p.patient_id));
-  if (displayPatients.length === 0) displayPatients = state.patients.slice(0, 2);
+  // Show ONLY the single patient that was selected at login — no switching within dashboard
+  const p = state.patients.find(pt => pt.patient_id === state.selectedPatientId);
+  if (!p) { container.innerHTML = '<p style="color:var(--text-muted);padding:16px;">No patient data available.</p>'; return; }
 
-  // If a patient outside the 2 is selected (e.g. from picker), ensure the 2 visible cards focus on active pair
-  if (!displayPatients.some(p => p.patient_id === state.selectedPatientId)) {
-    const activePt = state.patients.find(p => p.patient_id === state.selectedPatientId);
-    if (activePt) displayPatients = [activePt, displayPatients[0]];
-  }
+  const m = p.latest_measurement || {};
+  const cond = p.condition_tags ? p.condition_tags.join(', ') : 'General Care';
+  const statusClass = p.status_color || 'normal';
+  const sys = m.systolic_bp != null ? Math.round(m.systolic_bp) : 122;
+  const dia = m.diastolic_bp != null ? Math.round(m.diastolic_bp) : 80;
+  const pNum = state.selectedPatientId === 'p1' ? '1' : '2';
 
-  container.innerHTML = displayPatients.map((p, idx) => {
-    const m = p.latest_measurement || {};
-    const isSelected = p.patient_id === state.selectedPatientId;
-    const cond = p.condition_tags ? p.condition_tags.join(', ') : 'General Care';
-    const statusClass = p.status_color || 'normal';
-    const sys = m.systolic_bp != null ? Math.round(m.systolic_bp) : 122;
-    const dia = m.diastolic_bp != null ? Math.round(m.diastolic_bp) : 80;
-
-    return `
-      <div class="patient-card status-${statusClass} ${isSelected ? 'selected' : ''}" onclick="selectCaregiverPatient('${p.patient_id}')">
-        <div class="card-top">
-          <div class="patient-info">
-            <div style="display:flex;align-items:center;gap:8px;">
-              <span style="font-size:0.75rem;font-weight:800;background:var(--brand-light);color:var(--brand-dark);padding:2px 8px;border-radius:var(--r-full);">Patient Slot ${idx + 1}</span>
-              <h3>${p.name}</h3>
-            </div>
-            <div class="patient-meta">Age ${p.age} • ${cond}</div>
-          </div>
-          <span class="status-pill ${statusClass}">
-            ${statusClass === 'critical' ? '🚨 CRITICAL' : (statusClass === 'warning' ? '⚠️ WARNING' : '✓ NORMAL')}
-          </span>
-        </div>
-
-        <div class="vitals-grid">
-          <div class="vital-box">
-            <span class="vital-label">Heart Rate</span>
-            <div class="vital-value" id="val-hr-${p.patient_id}">
-              ${m.heart_rate != null ? Math.round(m.heart_rate) : '--'}<span class="vital-unit"> BPM</span>
-            </div>
-          </div>
-          <div class="vital-box">
-            <span class="vital-label">SpO₂</span>
-            <div class="vital-value" id="val-spo2-${p.patient_id}">
-              ${m.spo2 != null ? Math.round(m.spo2) : '--'}<span class="vital-unit"> %</span>
-            </div>
-          </div>
-          <div class="vital-box">
-            <span class="vital-label">Temp</span>
-            <div class="vital-value" id="val-temp-${p.patient_id}">
-              ${m.temperature != null ? Number(m.temperature).toFixed(1) : '--'}<span class="vital-unit"> °C</span>
-            </div>
-          </div>
-          <div class="vital-box">
-            <span class="vital-label">Blood Press.</span>
-            <div class="vital-value" id="val-bp-${p.patient_id}">
-              ${sys}/${dia}<span class="vital-unit"> mmHg</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="card-footer" style="display:flex;justify-content:space-between;align-items:center;">
-          <span>Source: <strong>${m.source || 'simulator'}</strong></span>
+  container.innerHTML = `
+    <div class="patient-card status-${statusClass} selected" style="max-width:100%;width:100%;">
+      <div class="card-top">
+        <div class="patient-info">
           <div style="display:flex;align-items:center;gap:8px;">
-            <span class="health-score-badge">Score: ${p.health_score != null ? p.health_score : 95}/100</span>
-            <span style="font-size:0.75rem;font-weight:700;color:${isSelected ? 'var(--caregiver)' : 'var(--text-muted)'};">
-              ${isSelected ? '● ACTIVE DASHBOARD' : 'Click to Focus →'}
-            </span>
+            <span style="font-size:0.75rem;font-weight:800;background:var(--brand-light);color:var(--brand-dark);padding:2px 8px;border-radius:var(--r-full);">🔒 Dedicated Patient ${pNum}</span>
+            <h3>${p.name}</h3>
+          </div>
+          <div class="patient-meta">Age ${p.age} • ${cond}</div>
+        </div>
+        <span class="status-pill ${statusClass}">
+          ${statusClass === 'critical' ? '🚨 CRITICAL' : (statusClass === 'warning' ? '⚠️ WARNING' : '✓ NORMAL')}
+        </span>
+      </div>
+
+      <div class="vitals-grid">
+        <div class="vital-box">
+          <span class="vital-label">Heart Rate</span>
+          <div class="vital-value" id="val-hr-${p.patient_id}">
+            ${m.heart_rate != null ? Math.round(m.heart_rate) : '--'}<span class="vital-unit"> BPM</span>
+          </div>
+        </div>
+        <div class="vital-box">
+          <span class="vital-label">SpO₂</span>
+          <div class="vital-value" id="val-spo2-${p.patient_id}">
+            ${m.spo2 != null ? Math.round(m.spo2) : '--'}<span class="vital-unit"> %</span>
+          </div>
+        </div>
+        <div class="vital-box">
+          <span class="vital-label">Temp</span>
+          <div class="vital-value" id="val-temp-${p.patient_id}">
+            ${m.temperature != null ? Number(m.temperature).toFixed(1) : '--'}<span class="vital-unit"> °C</span>
+          </div>
+        </div>
+        <div class="vital-box">
+          <span class="vital-label">Blood Press.</span>
+          <div class="vital-value" id="val-bp-${p.patient_id}">
+            ${sys}/${dia}<span class="vital-unit"> mmHg</span>
           </div>
         </div>
       </div>
-    `;
-  }).join('');
 
-  // Update switcher button active state in header
+      <div class="card-footer" style="display:flex;justify-content:space-between;align-items:center;">
+        <span>Source: <strong>${m.source || 'simulator'}</strong></span>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="health-score-badge">Score: ${p.health_score != null ? p.health_score : 95}/100</span>
+          <span style="font-size:0.75rem;font-weight:700;color:var(--caregiver);">● ACTIVE SESSION</span>
+        </div>
+      </div>
+    </div>
+  `;
+
   updatePatientSwitcherButtons();
 }
 
 function updatePatientSwitcherButtons() {
-  const btn1 = document.getElementById('cgBtn-p1');
-  const btn2 = document.getElementById('cgBtn-p2');
-  if (btn1) btn1.classList.toggle('active', state.selectedPatientId === 'p1');
-  if (btn2) btn2.classList.toggle('active', state.selectedPatientId === 'p2');
-
   const label = document.getElementById('caregiverActivePatientLabel');
   if (label) {
     const cur = state.patients.find(pt => pt.patient_id === state.selectedPatientId);
     label.textContent = cur ? `${cur.name} (${cur.patient_id.toUpperCase()})` : state.selectedPatientId;
+  }
+  const pill = document.getElementById('caregiverActiveSessionPill');
+  if (pill) {
+    const pNum = state.selectedPatientId === 'p1' ? '1' : '2';
+    pill.textContent = `🔒 Active Focus: Patient ${pNum}`;
   }
 }
 
