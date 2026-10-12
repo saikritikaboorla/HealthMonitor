@@ -337,7 +337,101 @@ Choose one or two; the project does not depend on any of them. **Before using an
 
 **Not recommended for this prototype:** large clinical datasets that need credentialed access (for example MIMIC-family databases). They add legal and access overhead with no benefit for a simulation-based demo.
 
-### 7.4 Data Handling Rules
+### 7.4 Primary Repository Dataset: Synthetic Patient HealthCare Monitoring Dataset
+
+The repository includes a primary dataset file (`Synthetic_patient-HealthCare-Monitoring_dataset.csv`) providing 60,000 structured patient records across 13 clinical and monitoring features with zero missing values. This dataset serves as the foundational test fixture, validation benchmark, and scenario generation engine for the SmartCare prototype.
+
+#### 7.4.1 Dataset Schema and Feature Breakdown
+
+| Feature | Data Type | Range / Distribution | Description & Operational Relevance |
+|---|---|---|---|
+| `Patient Number` | Integer | 1 to 60,000 | Unique synthetic patient record identifier. |
+| `Heart Rate (bpm)` | Integer | 50 – 139 bpm (mean: 94.57) | Pulse rate reading. Baseline normal range is 60–100 bpm; abnormal below 60 or above 100 bpm. |
+| `SpO2 Level (%)` | Integer | 84% – 100% (mean: 94.54%) | Peripheral blood oxygen saturation. Normal: 95–100%; abnormal (hypoxia): 84–94%. |
+| `Systolic Blood Pressure (mmHg)` | Integer | 90 – 199 mmHg (mean: 135.25) | Peak arterial pressure. Normal: ≤140 mmHg; abnormal: >140 mmHg. |
+| `Diastolic Blood Pressure (mmHg)` | Integer | 50 – 129 mmHg (mean: 85.86) | Resting arterial pressure. Normal: ≤90 mmHg; abnormal: >90 mmHg. |
+| `Body Temperature (°C)` | Float | 35.0°C – 39.3°C (mean: 37.12°C) | Core/skin temperature reading. Normal: 35.0–37.5°C; abnormal: ≥37.6°C. |
+| `Fall Detection` | String | 'No' (56,926 / 94.9%), 'Yes' (3,074 / 5.1%) | Accelerometer/fall trigger indicating sudden patient impact or fall. |
+| `Predicted Disease` | String | Diabetes Mellitus (12,167), Heart Disease (12,044), Healthy (11,973), Hypertension (11,928), Asthma (11,888) | Clinical archetype label used to generate representative vital sign distributions. |
+| `Data Accuracy (%)` | Integer | 85% – 100% (mean: 92.51%) | Telemetry confidence score representing sensor signal quality and noise level. |
+| `Heart Rate Alert` | String | NORMAL (36,992), ABNORMAL (23,008) | Pre-computed alert flag for pulse threshold breaches. |
+| `SpO2 Level Alert` | String | NORMAL (34,770), ABNORMAL (25,230) | Pre-computed alert flag for oxygen saturation drops. |
+| `Blood Pressure Alert` | String | NORMAL (26,530), ABNORMAL (33,470) | Pre-computed alert flag for hypertension or hypotension breaches. |
+| `Temperature Alert` | String | NORMAL (44,656), ABNORMAL (15,344) | Pre-computed alert flag for temperature limit breaches. |
+
+#### 7.4.2 Clinical Cohort Characteristics
+
+The dataset models five distinct physiological cohorts with characteristic vital sign distributions:
+- **Healthy Cohort (11,973 records):** 100% of readings fall strictly within normal boundaries across all four alert channels (mean HR: 74.4 bpm, mean SpO2: 97.4%, mean BP: 115/75 mmHg, mean Temp: 36.75°C). Zero rule breaches.
+- **Heart Disease Cohort (12,044 records):** Characterized by acute tachycardia and elevated arterial pressure (mean HR: 119.6 bpm, with 97.5% triggering abnormal heart-rate alerts; 99.9% triggering abnormal blood pressure alerts).
+- **Hypertension Cohort (11,928 records):** 100% exhibit abnormal blood pressure alerts (mean systolic BP: 154.8 mmHg; diastolic BP up to 129 mmHg).
+- **Asthma Cohort (11,888 records):** 100% exhibit abnormal SpO2 level alerts (mean SpO2: 89.2%, minimum: 84%), modeling acute respiratory desaturation.
+- **Diabetes Mellitus Cohort (12,167 records):** Demonstrates pronounced temperature elevation (mean Temp: 37.85°C; 73.3% abnormal temperature alerts), modeling metabolic and systemic fluctuations.
+- **Fall Incidents (3,074 records):** Distributed evenly across cohorts (~5.1% prevalence per group), simulating unpredicted physical emergencies independent of underlying vital health.
+
+---
+
+### 7.5 How the Dataset Works with the SmartCare Solution
+
+The `Synthetic_patient-HealthCare-Monitoring_dataset.csv` directly interfaces with SmartCare's modular architecture:
+
+```
++-------------------------------------------------------------------------------------------------------+
+|                    Synthetic Patient HealthCare Monitoring Dataset (60,000 Records)                   |
++-------------------------------------------------------------------------------------------------------+
+        |                                 |                             |                     |
+ [Vitals Telemetry]              [Fall Detection]              [Data Accuracy %]     [Alert Ground Truth]
+(HR, SpO2, Sys/Dia BP, Temp)         ('Yes' / 'No')              (85% - 100%)        (HR, SpO2, BP, Temp)
+        |                                 |                             |                     |
+        v                                 v                             v                     v
++---------------------+        +---------------------+        +--------------------+ +--------------------+
+| Ingestion & Replay  |        | Emergency SOS &     |        | Data Quality       | | Rules Engine       |
+| Adapter (Streaming  |        | Action Drawer       |        | & Sensor Monitor   | | Validation &       |
+| & Time-Series Gen)  |        | (High Priority)     |        | (Signal Assurance) | | Threshold Sandbox  |
++---------------------+        +---------------------+        +--------------------+ +--------------------+
+        |                                 |                             |                     |
+        +---------------------------------+-----------------------------+---------------------+
+                                          |
+                                          v
+                      +---------------------------------------+
+                      |   FastAPI Backend & WebSocket Stream  |
+                      +---------------------------------------+
+                                          |
+                                          v
+                      +---------------------------------------+
+                      |     React Caregiver Dashboard         |
+                      |  (Patient Cards, Charts & Drawer)     |
+                      +---------------------------------------+
+```
+
+1. **Multi-Vital Ingestion and Streaming (`POST /measurements`):**
+   - The dataset expands SmartCare from a dual-parameter demonstration to a rich multi-vital platform tracking **Heart Rate (bpm)**, **SpO2 (%)**, **Systolic Blood Pressure (mmHg)**, **Diastolic Blood Pressure (mmHg)**, and **Body Temperature (°C)**.
+   - The replay adapter (`simulator/`) reads batch rows and transforms them into time-series event streams with generated sequential timestamps at configurable replay speeds (1x real-time, 10x, or 60x demonstration mode).
+
+2. **Emergency Fall Detection Workflow (SOS Pipeline):**
+   - Ingested records with `Fall Detection = 'Yes'` bypass routine vital threshold evaluation and directly instantiate an urgent emergency alert identical to a physical SOS button press.
+   - This immediately activates the **Emergency Action Drawer** (Section 6.4), sounds the dashboard alert siren, locks the alert for caregiver triage, and begins the acknowledgment/escalation countdown.
+
+3. **Data Quality and Confidence Assessment (`Section 5.5`):**
+   - The `Data Accuracy (%)` feature provides realistic sensor quality telemetry.
+   - The Data Quality Monitor inspects this value: readings between 85% and 89% are accepted and displayed with a visual "Low Signal / Sensor Noise" quality badge, while readings with ≥90% accuracy are marked verified. This demonstrates the core design principle of separating technical signal quality from clinical condition.
+
+4. **Rules Engine Benchmarking and Sandbox Validation (`Section 5.4 & 6.2`):**
+   - The pre-computed alert columns (`Heart Rate Alert`, `SpO2 Level Alert`, `Blood Pressure Alert`, `Temperature Alert`) supply deterministic ground-truth labels.
+   - During automated testing (`pytest`), test suites benchmark SmartCare's rules engine against these 60,000 records to verify that configurable thresholds (e.g. HR: 60–100, SpO2: ≥95%, BP: ≤140/90, Temp: ≤37.5°C) trigger alerts with 100% expected consistency.
+   - In the **Threshold Sandbox**, caregivers can adjust limit sliders against patient historical recordings and instantly visualize predicted alert frequencies.
+
+5. **Repeatable Scenario Generation via Clinical Archetypes (`Section 5.9`):**
+   - The five disease cohorts supply ready-made, reproducible patient profiles for dashboard demonstrations:
+     * *Profile A (Stable/Healthy):* Zero false alarms, stable baseline telemetry.
+     * *Profile B (Hypertension & Cardiac Stress):* Sustained elevated blood pressure and pulse rate to demonstrate alert persistence, grouping, and triage workflows.
+     * *Profile C (Respiratory Desaturation):* Hypoxia alert generation from SpO2 drops below 95%.
+     * *Profile D (Acute Emergency):* Sudden fall detection event to demonstrate immediate caregiver escalation.
+
+6. **Strict Non-Diagnostic Compliance (`Section 10`):**
+   - In strict compliance with SmartCare's safety commitments, `Predicted Disease` tags are used purely for internal test fixture generation and scenario labeling. The user-facing dashboard **never** presents medical diagnoses, disease classifications, or treatment recommendations, maintaining the platform's non-diagnostic caregiver coordination role.
+
+### 7.6 Data Handling Rules
 
 - **Label the source on every reading.** Replayed data carries a `dataset-replay` source label and the dataset name, never `live`.
 - **Do not claim clinical meaning.** Data from other people is not a patient's baseline. Replay is for demonstration only.
@@ -347,7 +441,7 @@ Choose one or two; the project does not depend on any of them. **Before using an
 - **Keep it reproducible.** Store dataset name, version, URL, retrieval date, and license in a `data/README.md`.
 - **Fictional patients.** Map dataset recordings to fictional patient profiles (for example "Demo Patient A"). Never attach real identities.
 
-### 7.5 Implementation Approach
+### 7.7 Implementation Approach
 
 1. A `scripts/` folder contains a download or import script per dataset and a synthetic generator.
 2. An import step converts each dataset into a common CSV or Parquet format: `timestamp, parameter, value, unit, source`.
@@ -373,7 +467,7 @@ smartcare/
 └── docs/               # This documentation
 ```
 
-### 7.6 Future Use of Data
+### 7.8 Future Use of Data
 
 If the project later explores anomaly detection or predictive models, it would require properly consented clinical datasets, independent validation, and calibration before any real-world use. That work is outside the scope of this prototype.
 
