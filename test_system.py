@@ -122,11 +122,16 @@ async def run_full_suite():
         assert sos_alert["severity"] == "Critical"
         print("✓ [PASS] Patient SOS pipeline verified (Immediate Critical Alert)")
 
-        # 9. Test "I'm OK" Check-In
+        # 9. Test "I'm OK" Check-In & Sync
         res = await client.post("/checkin", json={"patient_id": "p1"})
         assert res.status_code == 200
         assert res.json()["status"] == "ok"
-        print("✓ [PASS] Patient 'I'm OK' Check-in verified")
+
+        res = await client.get("/patients/p1/checkin-status")
+        assert res.status_code == 200
+        chk_status = res.json()
+        assert chk_status["checked_in_today"] is True
+        print("✓ [PASS] Patient 'I'm OK' Check-in & Caregiver Sync verified")
 
         # 10. Test Caregivers & Verification Queue
         res = await client.get("/caregivers")

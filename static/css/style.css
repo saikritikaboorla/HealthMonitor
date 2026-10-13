@@ -968,7 +968,19 @@ h1, h2, h3, h4, h5 { font-family: 'Space Grotesk', sans-serif; font-weight: 700;
   white-space: nowrap;
 }
 .patient-section-badge.ok { background: var(--ok-bg); color: var(--ok-fg); }
+.patient-section-badge.warn { background: var(--warn-bg); color: var(--warn-fg); }
 .patient-section-badge.urgent { background: var(--crit-bg); color: var(--crit-fg); }
+.patient-section-badge.overdue {
+  background: #FEE2E2;
+  color: #DC2626;
+  border: 1px solid #FCA5A5;
+  font-weight: 800;
+  animation: pulseOverdue 2s infinite ease-in-out;
+}
+@keyframes pulseOverdue {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
 
 .patient-daily-grid,
 .patient-wellness-grid {

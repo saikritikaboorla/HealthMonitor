@@ -223,6 +223,7 @@ function setCaregiverTab(tabId) {
   } else if (tabId === 'alerts') {
     renderAlertsList();
     loadCareTasks(state.selectedPatientId);
+    loadCheckinStatusSync(state.selectedPatientId);
     loadMedicines(state.selectedPatientId);
   } else if (tabId === 'ai') {
     loadThresholdConfig(state.selectedPatientId);
@@ -381,6 +382,27 @@ function handleWebSocketMessage(msg) {
   } else if (msg.type === 'alert_escalated') {
     showToast('⚠️ Alert Escalated to secondary family contact!', true);
     speakNotification('Escalation alert: unacknowledged timeout reached.');
+    loadAlerts();
+  } else if (msg.type === 'checkin_ok') {
+    if (msg.patient_id === state.selectedPatientId) {
+      loadCheckinStatusSync(msg.patient_id);
+      loadAlerts();
+      if (state.activeView === 'caregiver') {
+        showToast(`✅ Patient ${msg.patient_id} recorded 'I'm OK' check-in!`);
+        speakNotification(`Patient check-in confirmed and synchronized.`);
+      }
+    }
+  } else if (msg.type === 'care_task_updated') {
+    if (!msg.patient_id || msg.patient_id === state.selectedPatientId) {
+      loadCareTasks(state.selectedPatientId);
+      loadAlerts();
+      if (state.activeView === 'caregiver' && msg.status === 'done') {
+        showToast('Care task marked completed and synced.');
+      }
+    }
+  } else if (msg.type === 'medicine_taken') {
+    loadMedicines(state.selectedPatientId);
+    if (state.activeView === 'patient') loadPatientMedsForPatientScreen(state.selectedPatientId);
     loadAlerts();
   } else if (msg.type === 'medicine_reminder') {
     showToast(`⏰ Medicine Due: ${msg.medicine_name} for ${msg.patient_id}`);
@@ -654,6 +676,7 @@ async function renderSelectedPatientDetail() {
   }
 
   loadCareTasks(p.patient_id);
+  loadCheckinStatusSync(p.patient_id);
   loadMedicines(p.patient_id);
   loadPatientTips(p.patient_id);
   loadThresholdConfig(p.patient_id);
@@ -672,41 +695,95 @@ async function loadCareTasks(pid) {
       const wrap = document.getElementById('careTasksList');
       const patientWrap = document.getElementById('patientCareTasksList');
       const patientBadge = document.getElementById('patientTasksBadge');
+      const cgTasksBadge = document.getElementById('cgTasksBadge');
+      const now = new Date();
+
+      const overdueTasks = tasks.filter(t => {
+        if (t.status === 'done') return false;
+        // Check if due_time has passed
+        try {
+          const due = new Date(t.due_time.replace(' ', 'T'));
+          return now > due;
+        } catch(e) { return false; }
+      });
       const pendingCount = tasks.filter(t => t.status !== 'done').length;
 
       if (patientBadge) {
-        patientBadge.textContent = pendingCount === 0 ? 'All Done' : `${pendingCount} To Do`;
-        patientBadge.className = `patient-section-badge ${pendingCount === 0 ? 'ok' : ''}`;
+        if (overdueTasks.length > 0) {
+          patientBadge.textContent = `⚠️ ${overdueTasks.length} Overdue`;
+          patientBadge.className = 'patient-section-badge overdue';
+        } else if (pendingCount === 0) {
+          patientBadge.textContent = 'All Done';
+          patientBadge.className = 'patient-section-badge ok';
+        } else {
+          patientBadge.textContent = `${pendingCount} To Do`;
+          patientBadge.className = 'patient-section-badge';
+        }
+      }
+
+      if (cgTasksBadge) {
+        if (overdueTasks.length > 0) {
+          cgTasksBadge.textContent = `🚨 ${overdueTasks.length} Overdue`;
+          cgTasksBadge.className = 'patient-section-badge overdue';
+        } else if (pendingCount === 0) {
+          cgTasksBadge.textContent = '✓ All Completed';
+          cgTasksBadge.className = 'patient-section-badge ok';
+        } else {
+          cgTasksBadge.textContent = `${pendingCount} Pending`;
+          cgTasksBadge.className = 'patient-section-badge';
+        }
       }
 
       const caregiverHtml = tasks.length === 0
-        ? `<div style="font-size:0.85rem;color:var(--text-muted);padding:8px 0;">No pending care tasks today.</div>`
-        : tasks.map(t => `
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 4px;border-bottom:1px solid var(--border);">
+        ? `<div style="font-size:0.85rem;color:var(--text-muted);padding:8px 0;">No care tasks scheduled today.</div>`
+        : tasks.map(t => {
+          let isOverdue = false;
+          try {
+            const due = new Date(t.due_time.replace(' ', 'T'));
+            isOverdue = t.status !== 'done' && now > due;
+          } catch(e) {}
+          return `
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 6px;border-bottom:1px solid var(--border);${isOverdue ? 'background:#FEF2F2;border-radius:var(--r-sm);margin-bottom:4px;' : ''}">
             <div>
-              <strong style="font-size:0.88rem;color:var(--ink);">${t.task_type}</strong>
-              <div style="font-size:0.75rem;color:var(--text-muted);margin-top:2px;">Scheduled: ${t.due_time.split(' ')[1] || t.due_time}</div>
+              <div style="display:flex;align-items:center;gap:6px;">
+                <strong style="font-size:0.88rem;color:${isOverdue ? '#DC2626' : 'var(--ink)'};">${t.task_type}</strong>
+                ${isOverdue ? '<span class="patient-section-badge overdue" style="font-size:0.7rem;padding:2px 6px;">OVERDUE</span>' : ''}
+              </div>
+              <div style="font-size:0.75rem;color:${isOverdue ? '#B91C1C' : 'var(--text-muted)'};margin-top:2px;">
+                Scheduled: ${t.due_time.split(' ')[1] || t.due_time} ${isOverdue ? '(Patient has not completed)' : ''}
+              </div>
             </div>
-            <button class="btn-sm ${t.status === 'done' ? 'btn-ack' : ''}" onclick="updateTaskStatus('${t.task_id}', 'done')">
+            <button class="btn-sm ${t.status === 'done' ? 'btn-ack' : (isOverdue ? 'btn-anomaly' : '')}" onclick="updateTaskStatus('${t.task_id}', 'done')">
               ${t.status === 'done' ? '✓ Completed' : 'Mark Done'}
             </button>
           </div>
-        `).join('');
+        `;}).join('');
 
       const patientHtml = tasks.length === 0
         ? `<div class="patient-loading-row">No activities scheduled today.</div>`
-        : tasks.map(t => `
-          <div class="patient-med-item">
+        : tasks.map(t => {
+          let isOverdue = false;
+          try {
+            const due = new Date(t.due_time.replace(' ', 'T'));
+            isOverdue = t.status !== 'done' && now > due;
+          } catch(e) {}
+          return `
+          <div class="patient-med-item" style="${isOverdue ? 'border:1.5px solid #FCA5A5;background:#FFF5F5;' : ''}">
             <div>
-              <div class="patient-med-name">${t.task_type}</div>
-              <div class="patient-med-sub">Scheduled: ${t.due_time.split(' ')[1] || t.due_time}</div>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <div class="patient-med-name">${t.task_type}</div>
+                ${isOverdue ? '<span class="patient-section-badge overdue" style="font-size:0.72rem;padding:2px 8px;">OVERDUE</span>' : ''}
+              </div>
+              <div class="patient-med-sub" style="${isOverdue ? 'color:#DC2626;font-weight:700;' : ''}">
+                Scheduled: ${t.due_time.split(' ')[1] || t.due_time} ${isOverdue ? '• Please complete now' : ''}
+              </div>
             </div>
             ${t.status === 'done'
               ? `<span style="font-size:0.9rem;color:var(--ok-fg);font-weight:800;background:var(--ok-bg);padding:8px 14px;border-radius:var(--r-full);white-space:nowrap;">Done</span>`
               : `<button class="btn-sm btn-ack" style="font-size:0.92rem;padding:10px 16px;border-radius:var(--r-sm);font-weight:800;white-space:nowrap;" onclick="updateTaskStatus('${t.task_id}', 'done')">Done</button>`
             }
           </div>
-        `).join('');
+        `;}).join('');
 
       if (wrap) wrap.innerHTML = caregiverHtml;
       if (patientWrap) patientWrap.innerHTML = patientHtml;
@@ -722,6 +799,117 @@ async function updateTaskStatus(taskId, status) {
   });
   showToast('Care task status updated.');
   loadCareTasks(state.selectedPatientId);
+  loadAlerts();
+}
+
+// ── Continuous Check-In Status Synchronization ──
+async function loadCheckinStatusSync(pid) {
+  try {
+    const res = await fetch(`/patients/${pid}/checkin-status`);
+    if (res.ok) {
+      const data = await res.json();
+      const patientCheckinBadge = document.getElementById('checkinBadge');
+      const patientStatusText = document.getElementById('patientCheckInStatusText');
+      const cgBadge = document.getElementById('cgCheckinBadge');
+      const cgDetail = document.getElementById('cgCheckinStatusDetail');
+
+      const checkedIn = data.checked_in_today;
+      const isOverdue = data.is_overdue;
+      let lastTimeStr = 'None today';
+      if (data.last_checkin_timestamp) {
+        try {
+          lastTimeStr = new Date(data.last_checkin_timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        } catch(e) {
+          lastTimeStr = data.last_checkin_timestamp;
+        }
+      }
+
+      // Patient Dashboard updates
+      if (patientCheckinBadge) {
+        if (checkedIn) {
+          patientCheckinBadge.textContent = '✓ Confirmed Today';
+          patientCheckinBadge.className = 'patient-section-badge ok';
+        } else if (isOverdue) {
+          patientCheckinBadge.textContent = '🚨 OVERDUE';
+          patientCheckinBadge.className = 'patient-section-badge overdue';
+        } else {
+          patientCheckinBadge.textContent = 'Pending Today';
+          patientCheckinBadge.className = 'patient-section-badge';
+        }
+      }
+
+      if (patientStatusText) {
+        if (checkedIn) {
+          patientStatusText.className = 'patient-last-checkin';
+          patientStatusText.innerHTML = `Last Check-In: Today at ${lastTimeStr} (Confirmed ✓)`;
+        } else if (isOverdue) {
+          patientStatusText.className = 'patient-last-checkin';
+          patientStatusText.style.background = '#FEE2E2';
+          patientStatusText.style.color = '#B91C1C';
+          patientStatusText.innerHTML = `⚠️ <strong>Check-In Overdue!</strong> Please tap "I'm OK" to reassure your caregiver.`;
+        } else {
+          patientStatusText.className = 'patient-last-checkin';
+          patientStatusText.style.background = 'var(--surface-2)';
+          patientStatusText.style.color = 'var(--text-muted)';
+          patientStatusText.innerHTML = `Daily check-in pending for today. Please tap when ready.`;
+        }
+      }
+
+      // Caregiver Dashboard updates
+      if (cgBadge) {
+        if (checkedIn) {
+          cgBadge.textContent = '✓ Check-In Received';
+          cgBadge.className = 'patient-section-badge ok';
+        } else if (isOverdue) {
+          cgBadge.textContent = '🚨 CHECK-IN OVERDUE';
+          cgBadge.className = 'patient-section-badge overdue';
+        } else {
+          cgBadge.textContent = 'Pending Today';
+          cgBadge.className = 'patient-section-badge warn';
+        }
+      }
+
+      if (cgDetail) {
+        if (checkedIn) {
+          cgDetail.style.background = '#ECFDF5';
+          cgDetail.style.borderColor = '#A7F3D0';
+          cgDetail.innerHTML = `
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-size:1.1rem;">✅</span>
+              <div>
+                <strong style="color:#065F46;">Patient Checked In Successfully</strong>
+                <div style="font-size:0.78rem;color:#047857;">Logged today at ${lastTimeStr}. Patient confirmed safe and well.</div>
+              </div>
+            </div>
+          `;
+        } else if (isOverdue) {
+          cgDetail.style.background = '#FEF2F2';
+          cgDetail.style.borderColor = '#FCA5A5';
+          cgDetail.innerHTML = `
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-size:1.1rem;">⚠️</span>
+              <div>
+                <strong style="color:#B91C1C;">Check-In Overdue — Patient has not checked in today!</strong>
+                <div style="font-size:0.78rem;color:#DC2626;">System raised warning alert. Recommend reaching out to patient or emergency contacts.</div>
+              </div>
+            </div>
+          `;
+        } else {
+          cgDetail.style.background = 'var(--surface-2)';
+          cgDetail.style.borderColor = 'var(--border)';
+          cgDetail.innerHTML = `
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-size:1.1rem;">⏳</span>
+              <div>
+                <strong style="color:var(--ink);">Daily Check-In Pending</strong>
+                <div style="font-size:0.78rem;color:var(--text-muted);">Waiting for patient's morning "I'm OK" confirmation.</div>
+              </div>
+            </div>
+          `;
+        }
+      }
+    }
+  } catch(e) { console.error('Failed to sync check-in status:', e); }
 }
 
 // ==========================================================================
@@ -972,6 +1160,7 @@ async function renderPatientSosView() {
   updatePatientBigVitals(m);
   loadPatientMedsForPatientScreen(p.patient_id);
   loadCareTasks(p.patient_id);
+  loadCheckinStatusSync(p.patient_id);
   setupSosButton();
   updatePatientStatusBanner(p);
   updatePatientHealthScore(p);
@@ -1296,13 +1485,10 @@ async function recordCheckIn() {
       body: JSON.stringify({ patient_id: state.selectedPatientId })
     });
     if (res.ok) {
-      const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      const statusText = document.getElementById('patientCheckInStatusText');
-      if (statusText) {
-        statusText.textContent = `Last Check-In: Today at ${nowStr} (Confirmed ✓)`;
-      }
       showToast("✅ 'I'm OK' check-in recorded! Your caregiver has been notified.");
       speakNotification("Thank you. Your daily check-in has been confirmed and logged.");
+      await loadCheckinStatusSync(state.selectedPatientId);
+      loadAlerts();
     }
   } catch (e) { console.error(e); }
 }

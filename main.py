@@ -509,12 +509,55 @@ async def record_checkin(req: CheckInRequest):
         INSERT INTO check_ins (checkin_id, patient_id, timestamp, status)
         VALUES (?, ?, ?, 'ok')
     """, (cid, req.patient_id, now_iso))
+
+    # If there were any active checkin overdue alerts for this patient, auto-resolve them
+    cursor.execute("""
+        SELECT alert_id FROM alerts
+        WHERE patient_id = ? AND alert_type = 'checkin' AND state IN ('Active', 'Acknowledged')
+    """, (req.patient_id,))
+    resolved_alerts = [r["alert_id"] for r in cursor.fetchall()]
+    for aid in resolved_alerts:
+        cursor.execute("""
+            UPDATE alerts SET state = 'Resolved', resolved_at = ? WHERE alert_id = ?
+        """, (now_iso, aid))
+
     conn.commit()
     conn.close()
 
     log_audit_event("CHECKIN_COMPLETED", actor=f"Patient:{req.patient_id}", patient_id=req.patient_id, new_val="I'm OK check-in recorded")
     await manager.broadcast({"type": "checkin_ok", "patient_id": req.patient_id, "timestamp": now_iso})
+    for aid in resolved_alerts:
+        await manager.broadcast({"type": "alert_resolved", "alert_id": aid})
+
     return {"status": "ok", "timestamp": now_iso}
+
+@app.get("/patients/{patient_id}/checkin-status")
+def get_checkin_status(patient_id: str):
+    conn = get_db()
+    cursor = conn.cursor()
+    today_prefix = datetime.now().strftime("%Y-%m-%d")
+    cursor.execute("""
+        SELECT * FROM check_ins
+        WHERE patient_id = ? AND timestamp >= ? AND status = 'ok'
+        ORDER BY timestamp DESC LIMIT 1
+    """, (patient_id, f"{today_prefix}T00:00:00"))
+    last_chk = cursor.fetchone()
+
+    cursor.execute("""
+        SELECT * FROM alerts
+        WHERE patient_id = ? AND alert_type = 'checkin' AND state IN ('Active', 'Acknowledged')
+        ORDER BY created_at DESC LIMIT 1
+    """, (patient_id,))
+    overdue_alert = cursor.fetchone()
+    conn.close()
+
+    return {
+        "patient_id": patient_id,
+        "checked_in_today": last_chk is not None,
+        "last_checkin_timestamp": last_chk["timestamp"] if last_chk else None,
+        "is_overdue": overdue_alert is not None,
+        "alert": dict(overdue_alert) if overdue_alert else None
+    }
 
 # --------------------------------------------------------------------------
 # Caregiver Module Endpoints
@@ -601,11 +644,39 @@ def get_care_tasks(patient_id: str):
 async def update_care_task(task_id: str, req: CareTaskUpdate):
     conn = get_db()
     cursor = conn.cursor()
+    cursor.execute("SELECT patient_id, task_type FROM care_tasks WHERE task_id = ?", (task_id,))
+    task_row = cursor.fetchone()
+    patient_id = task_row["patient_id"] if task_row else None
+    task_type = task_row["task_type"] if task_row else ""
+
     cursor.execute("UPDATE care_tasks SET status = ? WHERE task_id = ?", (req.status, task_id))
+
+    resolved_alerts = []
+    if req.status == "done" and patient_id:
+        # Auto-resolve any active task_overdue alerts corresponding to this task
+        now_iso = datetime.now().isoformat()
+        cursor.execute("""
+            SELECT alert_id FROM alerts
+            WHERE patient_id = ? AND alert_type = 'task_overdue'
+              AND explanation LIKE ? AND state IN ('Active', 'Acknowledged')
+        """, (patient_id, f"%{task_type}%"))
+        resolved_alerts = [r["alert_id"] for r in cursor.fetchall()]
+        for aid in resolved_alerts:
+            cursor.execute("UPDATE alerts SET state = 'Resolved', resolved_at = ? WHERE alert_id = ?", (now_iso, aid))
+
     conn.commit()
     conn.close()
-    await manager.broadcast({"type": "care_task_updated", "task_id": task_id, "status": req.status})
-    return {"status": req.status}
+
+    await manager.broadcast({
+        "type": "care_task_updated",
+        "task_id": task_id,
+        "patient_id": patient_id,
+        "status": req.status
+    })
+    for aid in resolved_alerts:
+        await manager.broadcast({"type": "alert_resolved", "alert_id": aid})
+
+    return {"status": req.status, "patient_id": patient_id}
 
 @app.get("/patients/{patient_id}/medicines")
 def get_medicines(patient_id: str):

@@ -515,11 +515,28 @@
 
           <!-- Clinical Routine: Care Tasks & Medications -->
           <div class="care-routine-column">
-            <!-- Daily Care Tasks Checklist -->
+            <!-- Patient Daily Check-In Status Sync -->
+            <div class="panel-card" id="caregiverCheckinSyncCard">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                <h4 style="margin:0;">🔔 Patient Daily Check-In Sync</h4>
+                <span id="cgCheckinBadge" class="patient-section-badge" style="font-size:0.75rem;padding:4px 10px;">Checking...</span>
+              </div>
+              <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:8px;">
+                Continuous live synchronization with the patient's "I'm OK" status. Alerts caregiver immediately when overdue.
+              </p>
+              <div id="cgCheckinStatusDetail" style="padding:10px 12px;background:var(--surface-2);border-radius:var(--r-sm);border:1px solid var(--border);font-size:0.85rem;">
+                Loading daily check-in telemetry...
+              </div>
+            </div>
+
+            <!-- Daily Care Task Checklist -->
             <div class="panel-card">
-              <h4>✅ Daily Care Task Checklist</h4>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                <h4 style="margin:0;">✅ Daily Care Task Checklist</h4>
+                <span id="cgTasksBadge" class="patient-section-badge" style="font-size:0.75rem;padding:4px 10px;">Loading...</span>
+              </div>
               <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:10px;">
-                Routine nursing duties and mobility protocols for the selected patient.
+                Routine nursing duties and patient activities. Tasks overdue past scheduled time notify caregiver.
               </p>
               <div id="careTasksList"></div>
             </div>

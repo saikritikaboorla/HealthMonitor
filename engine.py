@@ -21,6 +21,7 @@ class AlertRulesEngine:
         self.false_alarm_seconds = self.config.get("false_alarm_seconds", 5)
         self.offline_alert_seconds = self.config.get("offline_alert_seconds", 120)
         self.escalation_timeout_seconds = self.config.get("escalation_timeout_seconds", 120)
+        self.missed_checkin_seconds = self.config.get("missed_checkin_seconds", 3600)
 
         # In-memory tracking
         # patient_id -> {"hr": count, "temp": count, "spo2": count}
@@ -395,8 +396,134 @@ class AlertRulesEngine:
                     )
                     log_audit_event("DEVICE_OFFLINE", actor="AlertRulesEngine", patient_id=pid, new_val=expl)
 
+        # 3. Check overdue care tasks and overdue check-ins
+        overdue_alerts = await self.check_routine_and_checkin_overdue(conn)
+        escalated_alerts.extend(overdue_alerts)
+
         conn.close()
         return escalated_alerts
+
+    async def check_routine_and_checkin_overdue(self, conn) -> List[Dict[str, Any]]:
+        """Checks for overdue patient check-ins and overdue care tasks, generating alerts and notifications."""
+        now = datetime.now()
+        now_ts = now.timestamp()
+        now_iso = now.isoformat()
+        today_date = now.strftime("%Y-%m-%d")
+        new_alerts = []
+        cursor = conn.cursor()
+
+        # A. Check Missed / Overdue Patient Daily Check-in
+        # For each patient, check if they checked in today or since start of monitoring
+        cursor.execute("SELECT patient_id, name FROM patients")
+        patients = cursor.fetchall()
+        for p in patients:
+            pid = p["patient_id"]
+            p_name = p["name"]
+
+            # Look up today's check-ins
+            cursor.execute("""
+                SELECT timestamp FROM check_ins
+                WHERE patient_id = ? AND timestamp >= ? AND status = 'ok'
+                ORDER BY timestamp DESC LIMIT 1
+            """, (pid, f"{today_date}T00:00:00"))
+            chk = cursor.fetchone()
+
+            if not chk:
+                # Check how long since midnight or registration
+                # Check if there is already an active or acknowledged checkin alert
+                cursor.execute("""
+                    SELECT alert_id FROM alerts
+                    WHERE patient_id = ? AND alert_type = 'checkin' AND state IN ('Active', 'Acknowledged')
+                """, (pid,))
+                if not cursor.fetchone():
+                    # Only fire if enough time has elapsed (e.g. after morning 10:00 or after configured timeout)
+                    # For immediate responsive UX / demo testability, we trigger if no check-in exists today and current hour >= 10
+                    # or if last seen was over 30 mins ago without checkin
+                    should_alert = now.hour >= 10 or (pid in self.last_seen and (now_ts - self.last_seen[pid]) > self.missed_checkin_seconds)
+                    if should_alert:
+                        alt_id = f"chk_overdue_{pid}_{int(now_ts)}"
+                        expl = f"Overdue Daily Check-In: {p_name} has not submitted their 'I'm OK' check-in today."
+                        cursor.execute("""
+                            INSERT INTO alerts (alert_id, patient_id, alert_type, severity, explanation, state, created_at)
+                            VALUES (?, ?, 'checkin', 'Warning', ?, 'Active', ?)
+                        """, (alt_id, pid, expl, now_iso))
+                        conn.commit()
+
+                        await notification_service.send_alert_notification(
+                            alert_id=alt_id,
+                            patient_id=pid,
+                            patient_name=p_name,
+                            severity="Warning",
+                            explanation=expl,
+                            escalated=False
+                        )
+                        log_audit_event("CHECKIN_OVERDUE", actor="AlertRulesEngine", patient_id=pid, new_val=expl)
+                        new_alerts.append({
+                            "alert_id": alt_id,
+                            "patient_id": pid,
+                            "alert_type": "checkin",
+                            "severity": "Warning",
+                            "explanation": expl,
+                            "state": "Active",
+                            "created_at": now_iso
+                        })
+
+        # B. Check Overdue Care Tasks
+        # Tasks with status = 'pending' whose due_time has passed by more than 5 minutes
+        cursor.execute("""
+            SELECT t.task_id, t.patient_id, t.task_type, t.due_time, p.name as patient_name
+            FROM care_tasks t
+            JOIN patients p ON t.patient_id = p.patient_id
+            WHERE t.status = 'pending'
+        """)
+        pending_tasks = cursor.fetchall()
+        for t in pending_tasks:
+            due_str = t["due_time"] # e.g. "2026-10-13 10:30" or ISO format
+            task_due_dt = None
+            for fmt in ("%Y-%m-%d %H:%M", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S"):
+                try:
+                    task_due_dt = datetime.strptime(due_str, fmt)
+                    break
+                except Exception:
+                    pass
+
+            if task_due_dt and now > task_due_dt:
+                # Task is past due! Mark task as missed/overdue if past due
+                # Check if an alert has already been raised for this task
+                cursor.execute("""
+                    SELECT alert_id FROM alerts
+                    WHERE patient_id = ? AND alert_type = 'task_overdue'
+                      AND explanation LIKE ? AND state IN ('Active', 'Acknowledged')
+                """, (t["patient_id"], f"%{t['task_type']}%"))
+                if not cursor.fetchone():
+                    alt_id = f"task_overdue_{t['task_id']}_{int(now_ts)}"
+                    expl = f"Overdue Routine Task: '{t['task_type']}' for {t['patient_name']} was due at {due_str} and has not been completed."
+                    cursor.execute("""
+                        INSERT INTO alerts (alert_id, patient_id, alert_type, severity, explanation, state, created_at)
+                        VALUES (?, ?, 'task_overdue', 'Warning', ?, 'Active', ?)
+                    """, (alt_id, t["patient_id"], expl, now_iso))
+                    conn.commit()
+
+                    await notification_service.send_alert_notification(
+                        alert_id=alt_id,
+                        patient_id=t["patient_id"],
+                        patient_name=t["patient_name"],
+                        severity="Warning",
+                        explanation=expl,
+                        escalated=False
+                    )
+                    log_audit_event("TASK_OVERDUE", actor="AlertRulesEngine", patient_id=t["patient_id"], new_val=expl)
+                    new_alerts.append({
+                        "alert_id": alt_id,
+                        "patient_id": t["patient_id"],
+                        "alert_type": "task_overdue",
+                        "severity": "Warning",
+                        "explanation": expl,
+                        "state": "Active",
+                        "created_at": now_iso
+                    })
+
+        return new_alerts
 
     def calculate_health_score(self, patient_id: str) -> Dict[str, Any]:
         """Calculates rule-based Health Score (0-100) with full breakdown transparency."""
