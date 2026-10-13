@@ -24,6 +24,7 @@
 11. [Cost & Honest Limitations](#11-cost--honest-limitations)
 12. [Additional Features (Future Roadmap)](#12-additional-features-future-roadmap)
 13. [Dataset Credits](#13-dataset-credits)
+14. [Tech Stack and Languages Used](#14-tech-stack-and-languages-used)
 
 ---
 
@@ -473,3 +474,61 @@ Simulates a 5-minute fixed-seed scenario and outputs:
 | **Not used** | Predicted Disease is strictly isolated and never shown on any user-facing screen |
 
 The dynamic math simulator is the default and primary data source. The app runs fully without the CSV file.
+
+---
+
+## 14. Tech Stack and Languages Used
+
+### Programming Languages
+
+| Language | Where It Is Used | Purpose |
+|---|---|---|
+| **Python** (3.11+) | Entire backend core (`main.py`, `engine.py`, `ai_service.py`, `simulator.py`, `notifications.py`, `database.py`) | Asynchronous REST APIs, WebSocket management, threshold evaluation engine, AI LLM orchestration, mathematical telemetry generation, and evaluation scripts. |
+| **JavaScript** (ES6+ / Vanilla) | Frontend application (`static/js/app.js`) | Client-side reactive UI logic, WebSocket streaming & reconnects, Chart.js canvas rendering, audio sirens, SpeechSynthesis voice readouts, and WhatsApp chat mockup. |
+| **HTML5** | Single Page Application (`static/index.html`) | Semantic accessible document structure for both Patient (elderly-accessible) and Caregiver (telemetry) portals. |
+| **CSS3** | Application styling (`static/css/style.css`) | CSS custom properties (variables), Flexbox/Grid layouts, glassmorphism effects, ECG polyline animations, and mobile-responsive layouts. |
+| **SQL** (SQLite dialect) | Database layer (`database.py`) | Relational schema definitions, indexed queries, and append-only audit trail logging. |
+| **C / C++** (Arduino) | Firmware placeholder (`firmware/esp32_example.ino`) | Embedded C++ sketch for physical ESP32 microcontrollers reading MAX30102 and DS18B20 sensors and sending HTTP POST JSON telemetry. |
+
+### Technology Stack by Architectural Layer
+
+#### Frontend (Zero-Build Client)
+- **Architecture:** Zero-build Single Page Application (SPA) — runs directly in any modern browser without needing Node.js, npm, Webpack, or Vite.
+- **Chart.js (v4 via CDN):** Hardware-accelerated canvas graphing for 60-reading live telemetry waveforms with warning and critical limit overlays.
+- **Web Audio & HTML5 Audio API:** Synthesizes emergency warning siren frequencies in browser audio context.
+- **Web Speech API (`SpeechSynthesis`):** Provides spoken vital readouts (*"Read Vitals Aloud"*) and auditory medication reminders for elderly accessibility.
+- **WebSocket API (`ws://` / `wss://`):** Full-duplex persistent telemetry updates streaming every second.
+
+#### Backend & API
+- **FastAPI:** High-performance asynchronous web framework for Python.
+- **Uvicorn:** ASGI web server implementation running asynchronous loops.
+- **Pydantic (v2):** Strict data validation and schema enforcement for incoming telemetry and user actions (`schemas.py`).
+- **asyncio:** Python asynchronous event loop for non-blocking concurrent WebSocket broadcasting and background scheduling.
+- **httpx:** Asynchronous HTTP client with 10-second timeouts used for outbound REST calls to Groq and Gemini LLM endpoints.
+- **python-dotenv:** Environment variable loading from `.env.local` and `.env`.
+
+#### Database & Storage
+- **SQLite (with WAL mode - Write-Ahead Logging):**
+  - Zero-configuration, file-backed relational database (`carebeat.db`).
+  - 16 relational tables managing patients, contacts, vitals, alerts, audit trails, and medicine schedules.
+  - Automatic synchronization to `/tmp/carebeat.db` when deployed on serverless environments.
+
+#### AI & LLM Intelligence Layer
+- **Tier 1 (Primary): Groq Cloud API**
+  - Model: `openai/gpt-oss-20b` (or `llama-3.1-8b-instant`)
+  - OpenAI-compatible `/chat/completions` REST endpoint running on custom LPU (Language Processing Unit) hardware for sub-second caregiver summaries.
+- **Tier 2 (Secondary): Google Gemini API**
+  - Model: `gemini-1.5-flash`
+  - Secondary cloud fallback if the Groq API key is omitted or the service is unreachable.
+- **Tier 3 (Final Fallback): CareBeat Clinical Heuristics v1.2**
+  - 100% offline, deterministic rule engine running locally in Python with zero external network dependencies and guaranteed uptime.
+
+#### Hosting & Cloud Deployment
+- **Vercel Serverless Platform:**
+  - Configured via `vercel.json` using the `@vercel/python` builder.
+  - Single unified domain hosting both the static frontend and the FastAPI serverless functions (`api/index.py`).
+
+#### Emergency Communications & Integrations
+- **Telegram Bot API:** Push alerts directly to caregiver/family Telegram chats.
+- **Simulated WhatsApp & SMS Gateways:** In-browser interactive mockup messaging panels with strict phone masking (`+91 9XXXXXX10`).
+- **Hardware Ingestion Interface:** Device-independent JSON payload over HTTP (`POST /measurements`), ready for ESP32 Wi-Fi microcontrollers.
